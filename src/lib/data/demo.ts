@@ -65,7 +65,7 @@ export function demoProfile(profileId: string): ProfileSummary {
   return profiles[profileId] ?? profiles[DEMO_PROFILE_IDS.employee]!;
 }
 
-export const demoLearningCatalog: LearningClassCard[] = [
+export const LearningClassCard: LearningClassCard[] = [
   {
     id: '61000000-0000-4000-8000-000000000001',
     title: 'GMP: чистота и качество',
