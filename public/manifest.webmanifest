@@ -1,0 +1,18 @@
+{
+  "name": "Бионит В Деле",
+  "short_name": "Бионит",
+  "description": "Мотивация, онбординг и обучение сотрудников Бионит",
+  "start_url": "/home",
+  "display": "standalone",
+  "background_color": "#FFFFFF",
+  "theme_color": "#CB342A",
+  "lang": "ru",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
