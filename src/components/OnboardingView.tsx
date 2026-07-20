@@ -1,313 +1,105 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
-import {
-  Button,
-  Card,
-  Collapse,
-  Empty,
-  Form,
-  Input,
-  List,
-  Progress,
-  Skeleton,
-  Space,
-  Tag,
-  Tabs,
-  Typography,
-  message,
-  type TabsProps,
-} from 'antd';
-import {
-  useOnboardingStages,
-  useOnboardingProgress,
-  useOnboardingTasks,
-  useTaskCompletions,
-  useCompleteTask,
-  useKnowledgeArticles,
-  useFaqQuestions,
-  useAskQuestion,
-  type OnboardingStage,
-  type KnowledgeArticle,
-  type FaqQuestion,
-} from '@/hooks/useOnboarding';
+import { useMemo, useState } from "react";
+import { App, Button, Collapse, Input, Modal, Progress, Tabs } from "antd";
+import { EmployeeAvatar, PageHeader, StatusPill } from "@/components/Brand";
+import { Icon } from "@/components/Icon";
+import { formatDate } from "@/lib/utils/format";
+import type { KnowledgeArticle, OnboardingData, OnboardingQuestion, OnboardingTask } from "@/types/domain";
 
-type OnboardingViewProps = {
-  initial: {
-    assignmentId: string;
-    title: string;
-    startDate: string;
-    dueDate: string;
-    mentorName: string;
-    mentorPosition: string;
-    stages: any[];
-    knowledge: any[];
-    questions: any[];
-  };
-};
+export function OnboardingView({ initial }: { initial: OnboardingData }) {
+  const { message } = App.useApp();
+  const [stages, setStages] = useState(initial.stages);
+  const [questions, setQuestions] = useState(initial.questions);
+  const [question, setQuestion] = useState("");
+  const [sending, setSending] = useState(false);
+  const [article, setArticle] = useState<KnowledgeArticle | null>(null);
+  const [completing, setCompleting] = useState<string | null>(null);
 
-function StageCard({
-  stage,
-  isCompleted,
-  tasks,
-  completions,
-  completingTaskId,
-  onCompleteTask,
-}: {
-  stage: OnboardingStage;
-  isCompleted: boolean;
-  tasks: { id: string; name: string; description: string | null; isRequired: boolean }[];
-  completions: { taskId: string }[];
-  completingTaskId: string | null;
-  onCompleteTask: (taskId: string) => void;
-}) {
-  const completedCount = tasks.filter((t) => completions.some((c) => c.taskId === t.id)).length;
-  const totalCount = tasks.length;
-  const percent = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
+  const progress = useMemo(() => {
+    const tasks = stages.flatMap((stage) => stage.tasks);
+    const complete = tasks.filter((task) => task.status === "completed").length;
+    return { complete, total: tasks.length, percent: Math.round((complete / Math.max(tasks.length, 1)) * 100) };
+  }, [stages]);
 
-  return (
-    <Card
-      bordered={false}
-      style={{
-        opacity: isCompleted ? 0.7 : 1,
-        borderLeft: isCompleted ? '4px solid #2F9E44' : '4px solid #CB342A',
-        marginBottom: 16,
-      }}
-    >
-      <Space direction="vertical" size={14} style={{ width: '100%' }}>
-        <Space align="center" style={{ width: '100%', justifyContent: 'space-between' }}>
-          <Space align="center" size={10}>
-            <div style={{
-              width: 42, height: 42, borderRadius: 14,
-              background: isCompleted ? '#F0FFF4' : '#FFF1F0',
-              display: 'grid', placeItems: 'center', fontSize: 22,
-            }}>
-              {stage.icon ?? '📌'}
-            </div>
-            <Space direction="vertical" size={2}>
-              <Typography.Text strong style={{ fontSize: 17 }}>{stage.name}</Typography.Text>
-              <Typography.Text type="secondary" style={{ fontSize: 13 }}>{stage.description}</Typography.Text>
-            </Space>
-          </Space>
-          {isCompleted && <Tag color="green">Пройден</Tag>}
-        </Space>
-        <Progress percent={percent} strokeColor="#CB342A" />
-        {tasks.map((task) => {
-          const done = completions.some((c) => c.taskId === task.id);
-          return (
-            <div key={task.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 0', borderBottom: '1px solid #F4F4F4' }}>
-              <div style={{
-                width: 24, height: 24, borderRadius: 12,
-                background: done ? '#2F9E44' : '#F4F4F4',
-                color: done ? '#FFFFFF' : '#878787',
-                display: 'grid', placeItems: 'center', fontSize: 13, flexShrink: 0,
-              }}>
-                {done ? '✓' : '○'}
-              </div>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <Typography.Text style={{ fontSize: 14 }} delete={done} type={done ? 'secondary' : undefined}>
-                  {task.name}
-                </Typography.Text>
-                {task.description && (
-                  <Typography.Text type="secondary" style={{ display: 'block', fontSize: 12 }}>{task.description}</Typography.Text>
-                )}
-              </div>
-              {!done && (
-                <Button size="small" type="primary" loading={completingTaskId === task.id} onClick={() => onCompleteTask(task.id)}>
-                  Готово
-                </Button>
-              )}
-            </div>
-          );
-        })}
-      </Space>
-    </Card>
-  );
-}
-
-function ArticleCard({ article }: { article: KnowledgeArticle }) {
-  const [isOpen, setIsOpen] = useState(false);
-
-  const formatContent = (text: string): string => {
-    return text
-      .replace(/\\n\\n/g, '\n\n')
-      .replace(/\\n/g, '\n')
-      .replace(/\*\*(.*?)\*\*/g, '«$1»')
-      .replace(/^###\s+(.*$)/gm, '$1')
-      .replace(/^##\s+(.*$)/gm, '$1')
-      .replace(/^#\s+(.*$)/gm, '$1');
-  };
-
-  const cleanContent = formatContent(article.content);
-
-  return (
-    <Card bordered={false} style={{ width: '100%', cursor: 'pointer', marginBottom: 12 }} onClick={() => setIsOpen(!isOpen)}>
-      <Space direction="vertical" size={10} style={{ width: '100%' }}>
-        <Space align="center" size={10}>
-          <div style={{ width: 36, height: 36, borderRadius: 12, background: '#F4F4F4', display: 'grid', placeItems: 'center', fontSize: 18, flexShrink: 0 }}>📖</div>
-          <Space direction="vertical" size={2} style={{ flex: 1, minWidth: 0 }}>
-            <Typography.Text strong style={{ fontSize: 16 }}>{article.title}</Typography.Text>
-            <Typography.Text type="secondary" style={{ fontSize: 13 }}>{article.category ?? 'Без категории'}</Typography.Text>
-          </Space>
-        </Space>
-        {isOpen ? (
-          <div style={{ background: '#FAFAFA', borderRadius: 16, padding: 16, fontSize: 15, lineHeight: 1.6, whiteSpace: 'pre-line', color: '#1D1D1B' }}>
-            {cleanContent}
-          </div>
-        ) : (
-          <Typography.Paragraph type="secondary" style={{ margin: 0, fontSize: 14 }} ellipsis={{ rows: 2 }}>
-            {cleanContent.slice(0, 150)}...
-          </Typography.Paragraph>
-        )}
-        <Button type="link" size="small" onClick={(e) => { e.stopPropagation(); setIsOpen(!isOpen); }} style={{ padding: 0 }}>
-          {isOpen ? 'Свернуть' : 'Читать полностью'}
-        </Button>
-      </Space>
-    </Card>
-  );
-}
-
-function FaqCard({ question }: { question: FaqQuestion }) {
-  return (
-    <Card bordered={false} style={{ width: '100%', marginBottom: 12 }}>
-      <Space direction="vertical" size={8} style={{ width: '100%' }}>
-        <Space align="start" size={10}>
-          <Tag color="orange">{question.status === 'pending' ? 'Ожидает' : question.status === 'answered' ? 'Отвечен' : 'Закрыт'}</Tag>
-          <Typography.Text strong>Вопрос</Typography.Text>
-        </Space>
-        <Typography.Paragraph style={{ margin: 0 }}>{question.question}</Typography.Paragraph>
-        {question.answer && (
-          <div style={{ background: '#F4F4F4', borderRadius: 14, padding: 12 }}>
-            <Typography.Text type="secondary">Ответ:</Typography.Text>
-            <Typography.Paragraph style={{ margin: '4px 0 0' }}>{question.answer}</Typography.Paragraph>
-          </div>
-        )}
-      </Space>
-    </Card>
-  );
-}
-
-export function OnboardingView({ initial }: OnboardingViewProps) {
-  const [messageApi, contextHolder] = message.useMessage();
-  const [completingTaskId, setCompletingTaskId] = useState<string | null>(null);
-  const [askForm] = Form.useForm<{ question: string }>();
-
-  const stagesQuery = useOnboardingStages();
-  const progressQuery = useOnboardingProgress('demo-user');
-  const articlesQuery = useKnowledgeArticles();
-  const faqQuery = useFaqQuestions('demo-user');
-  const completeTask = useCompleteTask('demo-user');
-  const askQuestion = useAskQuestion('demo-user');
-
-  const stages = stagesQuery.data ?? [];
-  const progress = progressQuery.data ?? [];
-  const articles = articlesQuery.data ?? [];
-  const faq = faqQuery.data ?? [];
-
-  const handleCompleteTask = async (taskId: string): Promise<void> => {
-    setCompletingTaskId(taskId);
+  const completeTask = async (task: OnboardingTask) => {
+    if (task.status === "completed") return;
+    setCompleting(task.id);
     try {
-      await completeTask.mutateAsync(taskId);
-      void messageApi.success('Задание отмечено!');
+      const response = await fetch(`/api/onboarding/tasks/${task.id}/complete`, { method: "POST" });
+      const body = (await response.json()) as { error?: string };
+      if (!response.ok) throw new Error(body.error ?? "Не удалось завершить задание.");
+      setStages((current) => current.map((stage) => ({
+        ...stage,
+        tasks: stage.tasks.map((item) => item.id === task.id ? { ...item, status: "completed", completedAt: new Date().toISOString() } : item)
+      })));
+      void message.success(`Задание выполнено: +${task.points} Биоников`);
     } catch (error) {
-      void messageApi.error(error instanceof Error ? error.message : 'Не удалось отметить задание');
+      void message.error(error instanceof Error ? error.message : "Ошибка");
     } finally {
-      setCompletingTaskId(null);
+      setCompleting(null);
     }
   };
 
-  const handleAskQuestion = async (values: { question: string }): Promise<void> => {
+  const ask = async () => {
+    const text = question.trim();
+    if (text.length < 8) {
+      void message.warning("Добавьте больше деталей в вопрос.");
+      return;
+    }
+    setSending(true);
     try {
-      await askQuestion.mutateAsync(values.question);
-      void messageApi.success('Вопрос отправлен наставнику');
-      askForm.resetFields();
+      const response = await fetch("/api/onboarding/questions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ assignmentId: initial.assignmentId, question: text })
+      });
+      const body = (await response.json()) as { data?: OnboardingQuestion; error?: string };
+      if (!response.ok || !body.data) throw new Error(body.error ?? "Не удалось отправить вопрос.");
+      setQuestions((current) => [body.data as OnboardingQuestion, ...current]);
+      setQuestion("");
+      void message.success("Вопрос отправлен наставнику");
     } catch (error) {
-      void messageApi.error(error instanceof Error ? error.message : 'Не удалось задать вопрос');
+      void message.error(error instanceof Error ? error.message : "Ошибка");
+    } finally {
+      setSending(false);
     }
   };
 
-  const tabs: TabsProps['items'] = [
-    {
-      key: 'tracker',
-      label: 'Этапы и задания',
-      children: (
-        <Space direction="vertical" size={16} style={{ width: '100%' }}>
-          {stagesQuery.isLoading ? <Skeleton active /> :
-           stages.length === 0 ? <Empty description="Этапы онбординга пока не назначены" /> :
-           stages.map((stage) => {
-             const stageProgress = progress.find((p) => p.stageId === stage.id);
-             const isCompleted = stageProgress?.isCompleted ?? false;
-             const TasksWrapper = () => {
-               const tasksQuery = useOnboardingTasks(stage.id);
-               const completionsQuery = useTaskCompletions('demo-user');
-               const tasks = tasksQuery.data ?? [];
-               const completions = (completionsQuery.data ?? []).map((c) => ({ taskId: c.taskId }));
-               return (
-                 <StageCard
-                   key={stage.id}
-                   stage={stage}
-                   isCompleted={isCompleted}
-                   tasks={tasks}
-                   completions={completions}
-                   completingTaskId={completingTaskId}
-                   onCompleteTask={handleCompleteTask}
-                 />
-               );
-             };
-             return <TasksWrapper key={stage.id} />;
-           })}
-        </Space>
-      ),
-    },
-    {
-      key: 'knowledge',
-      label: 'База знаний',
-      children: (
-        <Space direction="vertical" size={16} style={{ width: '100%' }}>
-          {articlesQuery.isLoading ? <Skeleton active /> :
-           articles.length === 0 ? <Empty description="Статьи пока не добавлены" /> :
-           articles.map((article) => <ArticleCard key={article.id} article={article} />)}
-        </Space>
-      ),
-    },
-    {
-      key: 'faq',
-      label: 'Вопросы',
-      children: (
-        <Space direction="vertical" size={16} style={{ width: '100%' }}>
-          <Card bordered={false}>
-            <Form form={askForm} layout="vertical" onFinish={handleAskQuestion}>
-              <Form.Item name="question" rules={[{ required: true, message: 'Введите вопрос' }]}>
-                <Input.TextArea rows={3} placeholder="Задайте вопрос наставнику..." maxLength={500} />
-              </Form.Item>
-              <Button type="primary" htmlType="submit" block>Отправить</Button>
-            </Form>
-          </Card>
-          {faqQuery.isLoading ? <Skeleton active /> :
-           faq.length === 0 ? <Empty description="У вас пока нет вопросов" /> :
-           faq.map((q) => <FaqCard key={q.id} question={q} />)}
-        </Space>
-      ),
-    },
-  ];
-
-  return (
-    <section>
-      {contextHolder}
-      <Space direction="vertical" size={18} style={{ width: '100%' }}>
-        <Card bordered={false} style={{ overflow: 'hidden', background: 'linear-gradient(135deg, #CB342A 0%, #A71916 100%)', color: '#FFFFFF' }}>
-          <Space direction="vertical" size={10} style={{ width: '100%' }}>
-            <Typography.Text style={{ color: 'rgba(255,255,255,0.82)', fontSize: 14, fontWeight: 700 }}>Бионит Старт</Typography.Text>
-            <Typography.Title level={1} style={{ margin: 0, color: '#FFFFFF', fontSize: 30, lineHeight: 1.1, letterSpacing: -1.2 }}>
-              Добро пожаловать в команду!
-            </Typography.Title>
-            <Typography.Text style={{ color: 'rgba(255,255,255,0.88)', fontSize: 15, lineHeight: 1.45 }}>
-              Пройдите онбординг, изучите материалы и получите бейдж «Новичок».
-            </Typography.Text>
-          </Space>
-        </Card>
-        <Tabs items={tabs} />
-      </Space>
+  return <>
+    <PageHeader eyebrow="Адаптация" title="Онбординг" description="Ваш маршрут от первого рабочего дня до уверенного старта."/>
+    <section className="onboarding-summary">
+      <div className="summary-copy"><span className="eyebrow light">Активная программа</span><h2>{initial.title}</h2><p>С {formatDate(initial.startDate)} до {formatDate(initial.dueDate)}</p><div className="mentor-row"><EmployeeAvatar fullName={initial.mentorName}/><div><span>Ваш наставник</span><strong>{initial.mentorName}</strong><small>{initial.mentorPosition}</small></div></div></div>
+      <div className="summary-progress"><Progress type="circle" percent={progress.percent} size={128} strokeWidth={9}/><strong>{progress.complete} из {progress.total}</strong><span>заданий выполнено</span></div>
+      <div className="hero-pattern"/>
     </section>
-  );
+
+    <Tabs className="content-tabs" items={[
+      {
+        key: "route",
+        label: "Этапы и задания",
+        children: <div className="stage-list">{stages.map((stage, stageIndex) => <article className="stage-card" key={stage.id}>
+          <header><span className="stage-number">{stageIndex + 1}</span><div><h3>{stage.title}</h3><p>{stage.description}</p></div><StatusPill status={stage.status}/></header>
+          <div className="task-list">{stage.tasks.map((task) => <div className={task.status === "completed" ? "task-row completed" : "task-row"} key={task.id}>
+            <button type="button" className="task-check" aria-label={`Завершить ${task.title}`} onClick={() => void completeTask(task)} disabled={task.status === "completed" || completing === task.id}>{task.status === "completed" ? <Icon name="check" size={18}/> : completing === task.id ? <span className="spinner"/> : null}</button>
+            <div className="task-copy"><div><strong>{task.title}</strong><span className="task-points">+{task.points}</span></div><p>{task.description}</p><small>{task.dueDate ? <><Icon name="calendar" size={15}/> до {formatDate(task.dueDate)}</> : null}</small></div>
+          </div>)}</div>
+        </article>)}</div>
+      },
+      {
+        key: "knowledge",
+        label: "База знаний",
+        children: <div className="knowledge-grid">{initial.knowledge.map((item) => <button type="button" className="knowledge-card" key={item.id} onClick={() => setArticle(item)}><span className="icon-box"><Icon name="book"/></span><div><span>{item.category}</span><h3>{item.title}</h3><p>{item.summary}</p><small><Icon name="clock" size={15}/>{item.readMinutes} мин</small></div><Icon name="chevron-right"/></button>)}</div>
+      },
+      {
+        key: "questions",
+        label: "Вопросы",
+        children: <div className="questions-layout"><section className="ask-card"><span className="icon-box"><Icon name="message"/></span><h3>Спросить наставника</h3><p>Опишите ситуацию — вопрос увидят наставник и HR.</p><Input.TextArea value={question} onChange={(event) => setQuestion(event.target.value)} rows={5} maxLength={500} showCount placeholder="Например: где найти актуальную инструкцию..."/><Button type="primary" loading={sending} onClick={() => void ask()}>Отправить вопрос</Button></section><section className="question-history"><h3>История вопросов</h3>{questions.length ? <Collapse ghost items={questions.map((item) => ({ key: item.id, label: <div className="question-label"><span>{item.question}</span><StatusPill status={item.status}/></div>, children: item.answer ? <div className="answer-box"><strong>Ответ наставника</strong><p>{item.answer}</p></div> : <p className="muted">Ответ появится здесь после обработки вопроса.</p> }))}/> : <p className="muted">Вы ещё не задавали вопросов.</p>}</section></div>
+      }
+    ]}/>
+
+    <Modal open={Boolean(article)} onCancel={() => setArticle(null)} footer={null} title={article?.title}>
+      {article ? <div className="article-modal"><span>{article.category} · {article.readMinutes} мин</span><p>{article.body ?? article.summary}</p></div> : null}
+    </Modal>
+  </>;
 }
