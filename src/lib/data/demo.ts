@@ -3,10 +3,10 @@ import type {
   AdminDashboardData,
   BadgeSummary,
   DashboardData,
-  DepartmentRank,
-  EmployeeRank,
+  DepartmentLeaderboardRow,
+  EmployeeLeaderboardRow,
   LeaderboardsData,
-  LearningClassCard,
+  LearningClassSummary,
   LearningClassDetail,
   OnboardingData,
   ProfileSummary,
@@ -503,7 +503,7 @@ export function getDemoOnboarding(): OnboardingData {
 // Совместимость с существующим загрузчиком loadOnboarding().
 export const demoOnboarding = getDemoOnboarding;
 
-export const demoEmployees: EmployeeRank[] = [
+export const demoEmployees: EmployeeLeaderboardRow[] = [
   { rank: 1, profileId: DEMO_PROFILE_IDS.admin, fullName: 'Елена Соколова', position: 'HR-директор', departmentName: 'HR и развитие', score: 920, avatarUrl: null, isCurrentUser: false },
   { rank: 2, profileId: DEMO_PROFILE_IDS.manager, fullName: 'Михаил Орлов', position: 'Начальник отдела контроля качества', departmentName: 'Контроль качества', score: 780, avatarUrl: null, isCurrentUser: false },
   { rank: 3, profileId: DEMO_PROFILE_IDS.employee, fullName: 'Анна Крылова', position: 'Менеджер по продажам', departmentName: 'Продажи и маркетинг', score: 690, avatarUrl: null, isCurrentUser: true },
@@ -511,7 +511,7 @@ export const demoEmployees: EmployeeRank[] = [
   { rank: 5, profileId: '10000000-0000-4000-8000-000000000005', fullName: 'Мария Лебедева', position: 'Специалист по продукту', departmentName: 'Продажи и маркетинг', score: 560, avatarUrl: null, isCurrentUser: false }
 ];
 
-export const demoDepartments: DepartmentRank[] = [
+export const demoDepartments: DepartmentLeaderboardRow[] = [
   { rank: 1, departmentId: '21000000-0000-4000-8000-000000000002', departmentName: 'Контроль качества', score: 4280, membersCount: 18 },
   { rank: 2, departmentId: '21000000-0000-4000-8000-000000000001', departmentName: 'Производство', score: 3960, membersCount: 62 },
   { rank: 3, departmentId: '21000000-0000-4000-8000-000000000003', departmentName: 'HR и развитие', score: 2120, membersCount: 8 },
