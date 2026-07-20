@@ -647,3 +647,49 @@ export function demoExportTables(): Record<string, Array<Record<string, unknown>
   };
   return tables;
 }
+// Алиасы для совместимости с loaders.ts и API-роутами
+export const getDemoProfile = demoProfile;
+export const getDemoShop = demoShop;
+export const getDemoDashboard = demoDashboard;
+export const demoCourses = demoLearningCatalog;
+export const getDemoLearningClass = demoLearningDetail;
+export const demoAchievements = demoAchievementStories;
+export const getDemoLeaderboards = demoLeaderboards;
+export const getDemoAdminDashboard = demoAdminDashboard;
+
+export function submitDemoLearningAttempt(
+  classId: string,
+  answers: Record<string, string>
+): { attemptId: string; score: number; passed: boolean; attemptsUsed: number; attemptsLeft: number; rewardGranted: number } {
+  const correctAnswers = demoCorrectAnswers(classId);
+  const questionIds = Object.keys(correctAnswers);
+  
+  if (questionIds.length === 0) {
+    throw new Error('Класс не найден или не содержит вопросов.');
+  }
+
+  const answeredIds = Object.keys(answers);
+  const missing = questionIds.filter((id) => !answeredIds.includes(id));
+  if (missing.length > 0) {
+    throw new Error('Ответьте на все вопросы теста.');
+  }
+
+  let correct = 0;
+  for (const questionId of questionIds) {
+    if (answers[questionId] === correctAnswers[questionId]) {
+      correct++;
+    }
+  }
+
+  const score = Math.round((correct / questionIds.length) * 100);
+  const passed = score >= 90;
+
+  return {
+    attemptId: `demo-attempt-${Date.now()}`,
+    score,
+    passed,
+    attemptsUsed: passed ? 1 : 2,
+    attemptsLeft: passed ? 2 : 1,
+    rewardGranted: passed ? 150 : 0
+  };
+}
