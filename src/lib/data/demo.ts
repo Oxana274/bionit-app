@@ -1,7 +1,7 @@
 import type {
   AchievementStory,
   AdminDashboardData,
-  BadgeItem,
+  BadgeSummary,
   DashboardData,
   DepartmentRank,
   EmployeeRank,
@@ -220,7 +220,7 @@ export function demoCorrectAnswers(classId: string): Record<string, string> {
   ]));
 }
 
-export const demoBadges: BadgeItem[] = [
+export const demoBadges: BadgeSummary[] = [
   { id: '81000000-0000-4000-8000-000000000001', code: 'FIRST_STEP', title: 'Первый шаг', description: 'Завершить первые три задания онбординга.', kind: 'first-step', reward: 100, earnedAt: '2026-06-18T10:00:00Z', progressPercent: 100, locked: false },
   { id: '81000000-0000-4000-8000-000000000002', code: 'GMP_EXPERT', title: 'Знаток GMP', description: 'Сдать курс по GMP с результатом не ниже 90%.', kind: 'gmp', reward: 150, earnedAt: '2026-07-10T10:00:00Z', progressPercent: 100, locked: false },
   { id: '81000000-0000-4000-8000-000000000003', code: 'TEAM_PLAYER', title: 'Командный игрок', description: 'Принять участие в трёх командных активностях.', kind: 'team', reward: 120, earnedAt: null, progressPercent: 67, locked: true },
