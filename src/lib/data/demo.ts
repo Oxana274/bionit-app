@@ -184,8 +184,8 @@ export const demoBadges: BadgeSummary[] = [
 export const demoLearningCatalog: LearningClassSummary[] = [
   {
     id: "61000000-0000-4000-8000-000000000101",
-    title: "Класс А: Охрана труда",
-    description: "Обязательный вводный класс: риски, СИЗ и действия при происшествиях.",
+    title: "Курс А: Охрана труда",
+    description: "Обязательный вводный курс: риски, СИЗ и действия при происшествиях.",
     category: "Охрана труда",
     durationMinutes: 45,
     reward: 100,
@@ -354,7 +354,7 @@ type DemoLearningContent = {
 const learningContent: Record<string, DemoLearningContent> = {
   "61000000-0000-4000-8000-000000000101": {
     longDescription:
-      "Вводный класс по охране труда для сотрудников производственной компании. Материал охватывает основные опасности, применение СИЗ и порядок действий при происшествиях.",
+      "Вводный курс по охране труда для сотрудников производственной компании. Материал охватывает основные опасности, применение СИЗ и порядок действий при происшествиях.",
     modules: [
       {
         title: "Опасности и ответственность",
@@ -404,7 +404,7 @@ const learningContent: Record<string, DemoLearningContent> = {
   },
   "61000000-0000-4000-8000-000000000102": {
     longDescription:
-      "Класс знакомит с базовыми принципами GMP: личной гигиеной, предотвращением контаминации, документированием операций и реакцией на отклонения.",
+      "Курс знакомит с базовыми принципами GMP: личной гигиеной, предотвращением контаминации, документированием операций и реакцией на отклонения.",
     modules: [
       {
         title: "Зачем нужен GMP",
@@ -450,7 +450,7 @@ const learningContent: Record<string, DemoLearningContent> = {
   },
   "61000000-0000-4000-8000-000000000103": {
     longDescription:
-      "Класс по электробезопасности объясняет правила допуска к электрооборудованию, безопасное отключение и действия при поражении электрическим током.",
+      "Курс по электробезопасности объясняет правила допуска к электрооборудованию, безопасное отключение и действия при поражении электрическим током.",
     modules: [
       {
         title: "Допуск и осмотр оборудования",
@@ -872,13 +872,13 @@ export function getDemoLearningClass(classId: string): LearningClassDetail {
   const summary = demoLearningCatalog.find((item) => item.id === classId);
 
   if (!summary) {
-    throw new Error(`Класс ${classId} не найден.`);
+    throw new Error(`Курс ${classId} не найден.`);
   }
 
   const content = learningContent[classId];
 
   if (!content) {
-    throw new Error(`Материалы класса ${classId} не найдены.`);
+    throw new Error(`Материалы Курса ${classId} не найдены.`);
   }
 
   return {
@@ -929,7 +929,7 @@ export function submitDemoLearningAttempt(
   const questionIds = Object.keys(correctAnswers);
 
   if (!course || questionIds.length === 0) {
-    throw new Error("Класс не найден.");
+    throw new Error("Курс не найден.");
   }
 
   if (questionIds.some((questionId) => !answers[questionId])) {
