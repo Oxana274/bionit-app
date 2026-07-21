@@ -9,7 +9,7 @@ export function HomeView({ data }: { data: DashboardData }) {
   const firstName = data.profile.firstName;
   return <div className="home-page">
     <section className="home-hero">
-      <div className="home-hero-copy"><span className="eyebrow light">Сегодня в деле</span><h1>Здравствуйте,<br/>{firstName}</h1><p>Продолжайте адаптацию, развивайте знания и получайте Бионики за вклад в общее дело.</p><div className="hero-actions"><Link href="/onboarding"><Button type="primary" size="large">Продолжить онбординг</Button></Link><Link href="/learning" className="text-link">Все классы <Icon name="arrow-right" size={18}/></Link></div></div>
+      <div className="home-hero-copy"><span className="eyebrow light">Сегодня в деле</span><h1>Здравствуйте,<br/>{firstName}</h1><p>Работайте, учитесь, получайте признание и меняйте Бионики на мерч.</p><div className="hero-actions"><Link href="/onboarding"><Button type="primary" size="large">Продолжить онбординг</Button></Link><Link href="/learning" className="text-link">Все классы <Icon name="arrow-right" size={18}/></Link></div></div>
       <div className="hero-balance"><span>Ваш баланс</span><BionicCoin value={data.profile.balance}/><small>+{data.weeklyEarned} за эту неделю</small></div>
       <div className="hero-pattern"/>
     </section>
