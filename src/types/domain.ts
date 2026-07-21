@@ -240,3 +240,115 @@ export interface AdminDashboardData {
   employees: AdminEmployeeRow[];
   departments: Array<{ id: string; name: string }>;
 }
+
+export type SurveyStatus = "draft" | "active" | "closed";
+export type SurveyQuestionType =
+  | "single_choice"
+  | "number"
+  | "scale_1_5"
+  | "yes_no"
+  | "long_text";
+
+export type SurveyAnswerValue = string | number | boolean | null;
+
+export interface SurveyQuestion {
+  id: string;
+  code: string;
+  block: string;
+  blockTitle: string;
+  number: number | null;
+  title: string;
+  type: SurveyQuestionType;
+  required: boolean;
+  options: string[];
+  sortOrder: number;
+}
+
+export interface SurveySummary {
+  id: string;
+  title: string;
+  description: string;
+  status: SurveyStatus;
+  startsAt: string | null;
+  endsAt: string | null;
+  estimatedMinutes: number;
+  questionsCount: number;
+  responseSubmitted: boolean;
+  responseCount: number;
+  canViewResults: boolean;
+}
+
+export interface SurveyDetail extends SurveySummary {
+  questions: SurveyQuestion[];
+  departments: string[];
+  employeeCategories: string[];
+  tenureOptions: string[];
+}
+
+export interface SurveySubmission {
+  departmentName: string;
+  gender: "М" | "Ж";
+  age: number;
+  employeeCategory: string;
+  productionTenure: string;
+  answers: Record<string, SurveyAnswerValue>;
+}
+
+export interface SurveySubmissionResult {
+  id: string;
+  surveyId: string;
+  submittedAt: string;
+}
+
+export interface SurveyAdminControl {
+  id: string;
+  title: string;
+  status: SurveyStatus;
+  responseCount: number;
+  startsAt: string | null;
+  endsAt: string | null;
+}
+
+export interface SurveyFilterState {
+  department: string | null;
+  employeeCategory: string | null;
+  productionTenure: string | null;
+}
+
+export interface SurveyDepartmentResult {
+  departmentName: string;
+  respondentCount: number;
+  enps: number;
+  q20Share: number;
+  yesPercentages: Record<string, number>;
+}
+
+export interface SurveyYesQuestionResult {
+  code: string;
+  number: number;
+  title: string;
+  overallPercent: number;
+}
+
+export interface SurveyResultsData {
+  survey: {
+    id: string;
+    title: string;
+    status: SurveyStatus;
+  };
+  filters: {
+    departments: string[];
+    employeeCategories: string[];
+    tenureOptions: string[];
+    applied: SurveyFilterState;
+  };
+  totals: {
+    enps: number;
+    q20Share: number;
+    respondentCount: number;
+    employeeTotal: number;
+    responseRatePercent: number;
+  };
+  departments: SurveyDepartmentResult[];
+  yesNoQuestions: SurveyYesQuestionResult[];
+}
