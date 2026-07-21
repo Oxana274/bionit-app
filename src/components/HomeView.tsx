@@ -9,7 +9,7 @@ export function HomeView({ data }: { data: DashboardData }) {
   const firstName = data.profile.firstName;
   return <div className="home-page">
     <section className="home-hero">
-      <div className="home-hero-copy"><span className="eyebrow light">Сегодня в деле</span><h1>Здравствуйте,<br/>{firstName}</h1><p>Работайте, учитесь, получайте признание и меняйте Бионики на мерч.</p><div className="hero-actions"><Link href="/onboarding"><Button type="primary" size="large">Продолжить онбординг</Button></Link><Link href="/learning" className="text-link">Все классы <Icon name="arrow-right" size={18}/></Link></div></div>
+      <div className="home-hero-copy"><span className="eyebrow light">Сегодня в деле</span><h1>Здравствуйте,<br/>{firstName}</h1><p>Работайте, учитесь, получайте признание и меняйте Бионики на мерч.</p><div className="hero-actions"><Link href="/onboarding"><Button type="primary" size="large">Продолжить онбординг</Button></Link><Link href="/learning" className="text-link">Все курсы <Icon name="arrow-right" size={18}/></Link></div></div>
       <div className="hero-balance"><span>Ваш баланс</span><BionicCoin value={data.profile.balance}/><small>+{data.weeklyEarned} за эту неделю</small></div>
       <div className="hero-pattern"/>
     </section>
@@ -32,7 +32,7 @@ export function HomeView({ data }: { data: DashboardData }) {
       </div>
 
       <div className="home-column">
-        <div className="section-title"><div><span className="eyebrow">Развитие</span><h2>Рекомендуем</h2></div><Link href="/learning">Все классы <Icon name="arrow-right" size={17}/></Link></div>
+        <div className="section-title"><div><span className="eyebrow">Развитие</span><h2>Рекомендуем</h2></div><Link href="/learning">Все курсы <Icon name="arrow-right" size={17}/></Link></div>
         {data.recommendedClass ? <Link href={`/learning/${data.recommendedClass.id}`} className="course-preview"><CourseArtwork course={data.recommendedClass}/><div className="course-preview-body"><span>{data.recommendedClass.category}</span><h3>{data.recommendedClass.title}</h3><p>{data.recommendedClass.description}</p><div><small><Icon name="clock" size={16}/>{data.recommendedClass.durationMinutes} мин</small><small><Icon name="coin" size={16}/>{data.recommendedClass.reward}</small></div></div></Link> : null}
       </div>
     </section>
