@@ -14,6 +14,16 @@ import type {
   ShopData,
   ShopOrder,
   ShopProduct,
+  SurveyAdminControl,
+  SurveyAnswerValue,
+  SurveyDetail,
+  SurveyFilterState,
+  SurveyQuestion,
+  SurveyResultsData,
+  SurveyStatus,
+  SurveySubmission,
+  SurveySubmissionResult,
+  SurveySummary,
   UserRole
 } from "@/types/domain";
 
@@ -2229,6 +2239,697 @@ export function demoExportTables(): Record<string, Array<Record<string, unknown>
       variants: JSON.stringify(product.variants)
     })),
     shop_orders: admin.orders.map((order) => ({ ...order })),
-    employees: admin.employees.map((employee) => ({ ...employee }))
+    employees: admin.employees.map((employee) => ({ ...employee })),
+    surveys: [{ ...getDemoSurveyAdminControl() }],
+    survey_questions: demoSurveyQuestions.map((question) => ({ ...question })),
+    survey_answers: demoSurveyResponses.map((response) => ({
+      ...response,
+      answers: JSON.stringify(response.answers)
+    }))
+  };
+}
+
+// -----------------------------------------------------------------------------
+// Опросы вовлечённости
+// -----------------------------------------------------------------------------
+
+export const DEMO_SURVEY_ID = "81000000-0000-4000-8000-000000000001";
+
+export const demoSurveyDepartments = [
+  "Отдел главного инженера",
+  "ОБП",
+  "ОФП",
+  "ОФП 1 смена (верхний участок)",
+  "ОФП 1 смена (цоколь)",
+  "ОФП 1 смена (мансарда)",
+  "ОФП (упаковка)",
+  "Технологи/специалисты",
+  "ОФП 2 смена",
+  "Административный отдел",
+  "Отдел снабжения, маркетинга и сбыта",
+  "Финансовый отдел/Юридический отдел",
+  "ОКК"
+] as const;
+
+export const demoSurveyEmployeeCategories = [
+  "Руководство и специалисты административного блока",
+  "Руководство и специалисты производственного блока",
+  "Специалисты и рабочие на производстве"
+] as const;
+
+export const demoSurveyTenureOptions = [
+  "0-3 месяца",
+  "3-6 месяцев",
+  "6-12 месяцев",
+  "более 1 года"
+] as const;
+
+function surveyQuestion(
+  code: string,
+  block: string,
+  blockTitle: string,
+  number: number | null,
+  title: string,
+  type: SurveyQuestion["type"],
+  sortOrder: number,
+  options: readonly string[] = [],
+  required = true
+): SurveyQuestion {
+  return {
+    id: `82000000-0000-4000-8000-${String(sortOrder).padStart(12, "0")}`,
+    code,
+    block,
+    blockTitle,
+    number,
+    title,
+    type,
+    required,
+    options: [...options],
+    sortOrder
+  };
+}
+
+export const demoSurveyQuestions: SurveyQuestion[] = [
+  surveyQuestion(
+    "DEPARTMENT",
+    "demographics",
+    "Демография",
+    null,
+    "Подразделение",
+    "single_choice",
+    1,
+    demoSurveyDepartments
+  ),
+  surveyQuestion(
+    "GENDER",
+    "demographics",
+    "Демография",
+    null,
+    "Пол",
+    "single_choice",
+    2,
+    ["М", "Ж"]
+  ),
+  surveyQuestion(
+    "AGE",
+    "demographics",
+    "Демография",
+    null,
+    "Возраст",
+    "number",
+    3
+  ),
+  surveyQuestion(
+    "EMPLOYEE_CATEGORY",
+    "demographics",
+    "Демография",
+    null,
+    "Категория сотрудника",
+    "single_choice",
+    4,
+    demoSurveyEmployeeCategories
+  ),
+  surveyQuestion(
+    "PRODUCTION_TENURE",
+    "demographics",
+    "Демография",
+    null,
+    "Стаж на производстве",
+    "single_choice",
+    5,
+    demoSurveyTenureOptions
+  ),
+  surveyQuestion(
+    "Q1",
+    "scale",
+    "Оценка по шкале 1–5",
+    1,
+    "Оцените, насколько Вы довольны результатами своей работы",
+    "scale_1_5",
+    10
+  ),
+  surveyQuestion(
+    "Q2",
+    "scale",
+    "Оценка по шкале 1–5",
+    2,
+    "Я готов рекомендовать компанию Бионит как надёжного работодателя",
+    "scale_1_5",
+    11
+  ),
+  surveyQuestion(
+    "Q3",
+    "scale",
+    "Оценка по шкале 1–5",
+    3,
+    "Я готов рекомендовать продукцию, которую производит наша компания",
+    "scale_1_5",
+    12
+  ),
+  surveyQuestion(
+    "Q4",
+    "yes_no",
+    "Да / Нет",
+    4,
+    "Знаете ли Вы, чего ожидает от Вас работодатель?",
+    "yes_no",
+    20
+  ),
+  surveyQuestion(
+    "Q5",
+    "yes_no",
+    "Да / Нет",
+    5,
+    "У Вас есть материалы и инструменты, необходимые для качественной работы?",
+    "yes_no",
+    21
+  ),
+  surveyQuestion(
+    "Q6",
+    "yes_no",
+    "Да / Нет",
+    6,
+    "У Вас есть возможность каждый день делать то, что Вы умеете лучше всего?",
+    "yes_no",
+    22
+  ),
+  surveyQuestion(
+    "Q7",
+    "yes_no",
+    "Да / Нет",
+    7,
+    "За последние семь дней Вы получали признание или похвалу за хорошую работу?",
+    "yes_no",
+    23
+  ),
+  surveyQuestion(
+    "Q8",
+    "yes_no",
+    "Да / Нет",
+    8,
+    "Мой руководитель проводит со мной личные встречи и даёт обратную связь",
+    "yes_no",
+    24
+  ),
+  surveyQuestion(
+    "Q9",
+    "yes_no",
+    "Да / Нет",
+    9,
+    "За последние полгода кто-нибудь говорил с Вами о Ваших успехах?",
+    "yes_no",
+    25
+  ),
+  surveyQuestion(
+    "Q10",
+    "yes_no",
+    "Да / Нет",
+    10,
+    "Считаете ли Вы, что Ваш руководитель заботится о Вас как о личности?",
+    "yes_no",
+    26
+  ),
+  surveyQuestion(
+    "Q11",
+    "yes_no",
+    "Да / Нет",
+    11,
+    "В прошлом году у Вас были возможности учиться и расти на работе?",
+    "yes_no",
+    27
+  ),
+  surveyQuestion(
+    "Q12",
+    "yes_no",
+    "Да / Нет",
+    12,
+    "Считают ли Ваши коллеги своей обязанностью качественно выполнять работу?",
+    "yes_no",
+    28
+  ),
+  surveyQuestion(
+    "Q13",
+    "yes_no",
+    "Да / Нет",
+    13,
+    "Мои коллеги конструктивно и доброжелательно взаимодействуют со мной",
+    "yes_no",
+    29
+  ),
+  surveyQuestion(
+    "Q14",
+    "yes_no",
+    "Да / Нет",
+    14,
+    "Кто-нибудь на работе способствует Вашему развитию?",
+    "yes_no",
+    30
+  ),
+  surveyQuestion(
+    "Q15",
+    "yes_no",
+    "Да / Нет",
+    15,
+    "Учитывается ли Ваша точка зрения?",
+    "yes_no",
+    31
+  ),
+  surveyQuestion(
+    "Q16",
+    "yes_no",
+    "Да / Нет",
+    16,
+    "Я чувствую, что меня ценят на работе",
+    "yes_no",
+    32
+  ),
+  surveyQuestion(
+    "Q17",
+    "yes_no",
+    "Да / Нет",
+    17,
+    "Я могу свободно выражать своё мнение, не опасаясь негативных последствий",
+    "yes_no",
+    33
+  ),
+  surveyQuestion(
+    "Q18",
+    "yes_no",
+    "Да / Нет",
+    18,
+    "Уровень оплаты моего труда соответствует моему вкладу",
+    "yes_no",
+    34
+  ),
+  surveyQuestion(
+    "Q19",
+    "yes_no",
+    "Да / Нет",
+    19,
+    "Миссия и цель компании заставляют Вас чувствовать, что Ваша работа важна?",
+    "yes_no",
+    35
+  ),
+  surveyQuestion(
+    "Q20",
+    "yes_no",
+    "Да / Нет",
+    20,
+    "У Вас есть лучший друг на работе?",
+    "yes_no",
+    36
+  ),
+  surveyQuestion(
+    "Q21",
+    "open",
+    "Открытые вопросы",
+    21,
+    "Какие положительные изменения Вы заметили в работе компании за последние три месяца/полгода?",
+    "long_text",
+    40,
+    [],
+    false
+  ),
+  surveyQuestion(
+    "Q22",
+    "open",
+    "Открытые вопросы",
+    22,
+    "Что помогло бы Вам быть ещё более эффективным в работе?",
+    "long_text",
+    41,
+    [],
+    false
+  ),
+  surveyQuestion(
+    "Q23",
+    "open",
+    "Открытые вопросы",
+    23,
+    "Что должна сделать компания как работодатель, чтобы улучшить Вашу оценку?",
+    "long_text",
+    42,
+    [],
+    false
+  ),
+  surveyQuestion(
+    "Q24",
+    "open",
+    "Открытые вопросы",
+    24,
+    "Что больше всего Вам нравится в компании?",
+    "long_text",
+    43,
+    [],
+    false
+  )
+];
+
+interface DemoSurveyResponse {
+  id: string;
+  surveyId: string;
+  profileId: string | null;
+  departmentName: string;
+  gender: "М" | "Ж";
+  age: number;
+  employeeCategory: string;
+  productionTenure: string;
+  answers: Record<string, SurveyAnswerValue>;
+  submittedAt: string;
+}
+
+const positiveChanges = [
+  "Стало больше открытых встреч с руководителями и понятнее приоритеты.",
+  "Улучшилась организация смен и информирование о производственных планах.",
+  "Появилось больше обучения и полезных материалов по качеству.",
+  "Быстрее решаются вопросы по инструментам и снабжению.",
+  "Коллеги стали активнее делиться опытом между участками."
+];
+
+const efficiencyIdeas = [
+  "Более стабильное обеспечение материалами и понятный график задач.",
+  "Короткие еженедельные встречи с обратной связью.",
+  "Дополнительное обучение по оборудованию и рабочим системам.",
+  "Упрощение согласований и единое место для инструкций.",
+  "Больше времени на профилактическое обслуживание оборудования."
+];
+
+const employerIdeas = [
+  "Чаще рассказывать о решениях компании и результатах подразделений.",
+  "Развивать систему признания и понятные критерии премирования.",
+  "Улучшить бытовые условия и зоны отдыха.",
+  "Регулярно обсуждать карьерные и учебные возможности.",
+  "Сократить время реакции на обращения сотрудников."
+];
+
+const companyLikes = [
+  "Стабильность, полезная продукция и сильная команда.",
+  "Отношение коллег и возможность видеть результат своего труда.",
+  "История компании и внимание к качеству продукции.",
+  "Профессиональные специалисты и взаимопомощь.",
+  "Возможность учиться и участвовать в развитии производства."
+];
+
+function createDemoSurveyResponse(index: number): DemoSurveyResponse {
+  const answers: Record<string, SurveyAnswerValue> = {
+    Q1: 2 + ((index + 1) % 4),
+    Q2: 1 + ((index * 2 + 2) % 5),
+    Q3: 2 + ((index * 3 + 1) % 4)
+  };
+
+  for (let questionNumber = 4; questionNumber <= 19; questionNumber += 1) {
+    const threshold = 5 + (questionNumber % 4);
+    answers[`Q${questionNumber}`] = ((index * 7 + questionNumber * 3) % 10) < threshold;
+  }
+
+  answers.Q20 = index % 3 !== 0;
+  answers.Q21 = index % 3 === 0 ? positiveChanges[index % positiveChanges.length]! : "";
+  answers.Q22 = index % 4 === 0 ? efficiencyIdeas[index % efficiencyIdeas.length]! : "";
+  answers.Q23 = index % 5 === 0 ? employerIdeas[index % employerIdeas.length]! : "";
+  answers.Q24 = index % 2 === 0 ? companyLikes[index % companyLikes.length]! : "";
+
+  return {
+    id: `83000000-0000-4000-8000-${String(index + 1).padStart(12, "0")}`,
+    surveyId: DEMO_SURVEY_ID,
+    profileId: null,
+    departmentName: demoSurveyDepartments[index % demoSurveyDepartments.length]!,
+    gender: index % 2 === 0 ? "Ж" : "М",
+    age: 22 + ((index * 5) % 37),
+    employeeCategory:
+      demoSurveyEmployeeCategories[index % demoSurveyEmployeeCategories.length]!,
+    productionTenure:
+      demoSurveyTenureOptions[index % demoSurveyTenureOptions.length]!,
+    answers,
+    submittedAt: new Date(Date.UTC(2026, 6, 1 + index, 8 + (index % 8), 15)).toISOString()
+  };
+}
+
+export const demoSurveyResponses: DemoSurveyResponse[] = Array.from(
+  { length: 30 },
+  (_, index) => createDemoSurveyResponse(index)
+);
+
+let demoSurveyStatus: SurveyStatus = "active";
+const demoSubmittedProfiles = new Set<string>();
+
+function surveySummary(profileId: string): SurveySummary {
+  const profile = getDemoProfile(profileId);
+  return {
+    id: DEMO_SURVEY_ID,
+    title: "Вовлечённость Q3 2026",
+    description:
+      "Опрос поможет оценить вовлечённость, качество взаимодействия и рабочие условия в подразделениях Бионит.",
+    status: demoSurveyStatus,
+    startsAt: "2026-07-01T00:00:00Z",
+    endsAt: "2026-09-30T20:59:59Z",
+    estimatedMinutes: 12,
+    questionsCount: 24,
+    responseSubmitted: demoSubmittedProfiles.has(profileId),
+    responseCount: demoSurveyResponses.length,
+    canViewResults: profile.role === "admin"
+  };
+}
+
+export function getDemoSurveys(profileId: string): SurveySummary[] {
+  return [surveySummary(profileId)];
+}
+
+export function getDemoSurvey(
+  profileId: string,
+  surveyId: string
+): SurveyDetail | null {
+  if (surveyId !== DEMO_SURVEY_ID) return null;
+
+  return {
+    ...surveySummary(profileId),
+    questions: demoSurveyQuestions.map((question) => ({ ...question })),
+    departments: [...demoSurveyDepartments],
+    employeeCategories: [...demoSurveyEmployeeCategories],
+    tenureOptions: [...demoSurveyTenureOptions]
+  };
+}
+
+export function submitDemoSurveyResponse(
+  profileId: string,
+  surveyId: string,
+  submission: SurveySubmission
+): SurveySubmissionResult {
+  if (surveyId !== DEMO_SURVEY_ID) throw new Error("Опрос не найден.");
+  if (demoSurveyStatus !== "active") throw new Error("Опрос сейчас закрыт.");
+  if (demoSubmittedProfiles.has(profileId)) {
+    throw new Error("Вы уже прошли этот опрос.");
+  }
+
+  const requiredCodes = demoSurveyQuestions
+    .filter((question) => question.required && question.number !== null)
+    .map((question) => question.code);
+
+  for (const code of requiredCodes) {
+    const value = submission.answers[code];
+    if (value === null || value === undefined || value === "") {
+      throw new Error("Ответьте на все обязательные вопросы.");
+    }
+  }
+
+  if (!demoSurveyDepartments.includes(
+    submission.departmentName as (typeof demoSurveyDepartments)[number]
+  )) {
+    throw new Error("Выбрано неизвестное подразделение.");
+  }
+  if (!demoSurveyEmployeeCategories.includes(
+    submission.employeeCategory as (typeof demoSurveyEmployeeCategories)[number]
+  )) {
+    throw new Error("Выбрана неизвестная категория сотрудника.");
+  }
+  if (!demoSurveyTenureOptions.includes(
+    submission.productionTenure as (typeof demoSurveyTenureOptions)[number]
+  )) {
+    throw new Error("Выбран неизвестный стаж.");
+  }
+
+  for (const question of demoSurveyQuestions.filter(
+    (item) => item.number !== null
+  )) {
+    const value = submission.answers[question.code];
+    if (value === null || value === undefined || value === "") continue;
+
+    if (
+      question.type === "scale_1_5" &&
+      (!Number.isInteger(value) || Number(value) < 1 || Number(value) > 5)
+    ) {
+      throw new Error("Оценка должна быть целым числом от 1 до 5.");
+    }
+    if (question.type === "yes_no" && typeof value !== "boolean") {
+      throw new Error("Для вопросов Да / Нет выберите один вариант.");
+    }
+    if (
+      question.type === "long_text" &&
+      (typeof value !== "string" || value.length > 2000)
+    ) {
+      throw new Error("Открытый ответ не должен превышать 2000 символов.");
+    }
+  }
+
+  const id = crypto.randomUUID();
+  const submittedAt = new Date().toISOString();
+  demoSurveyResponses.push({
+    id,
+    surveyId,
+    profileId,
+    departmentName: submission.departmentName,
+    gender: submission.gender,
+    age: submission.age,
+    employeeCategory: submission.employeeCategory,
+    productionTenure: submission.productionTenure,
+    answers: { ...submission.answers },
+    submittedAt
+  });
+  demoSubmittedProfiles.add(profileId);
+
+  return { id, surveyId, submittedAt };
+}
+
+export function getDemoSurveyAdminControl(): SurveyAdminControl {
+  return {
+    id: DEMO_SURVEY_ID,
+    title: "Вовлечённость Q3 2026",
+    status: demoSurveyStatus,
+    responseCount: demoSurveyResponses.length,
+    startsAt: "2026-07-01T00:00:00Z",
+    endsAt: "2026-09-30T20:59:59Z"
+  };
+}
+
+export function setDemoSurveyStatus(status: SurveyStatus): SurveyAdminControl {
+  demoSurveyStatus = status;
+  return getDemoSurveyAdminControl();
+}
+
+function numericAnswer(response: DemoSurveyResponse, code: string): number {
+  const value = response.answers[code];
+  return typeof value === "number" ? value : Number(value ?? 0);
+}
+
+function booleanAnswer(response: DemoSurveyResponse, code: string): boolean {
+  return response.answers[code] === true;
+}
+
+function round(value: number, digits: number): number {
+  const multiplier = 10 ** digits;
+  return Math.round(value * multiplier) / multiplier;
+}
+
+function metricsForResponses(responses: DemoSurveyResponse[]) {
+  if (responses.length === 0) {
+    return {
+      enps: 0,
+      q20Share: 0,
+      yesPercentages: Object.fromEntries(
+        Array.from({ length: 17 }, (_, index) => [`Q${index + 4}`, 0])
+      ) as Record<string, number>
+    };
+  }
+
+  const scoreTotal = responses.reduce(
+    (sum, response) =>
+      sum +
+      numericAnswer(response, "Q1") +
+      numericAnswer(response, "Q2") +
+      numericAnswer(response, "Q3"),
+    0
+  );
+
+  const yesPercentages: Record<string, number> = {};
+  for (let questionNumber = 4; questionNumber <= 20; questionNumber += 1) {
+    const code = `Q${questionNumber}`;
+    const yesCount = responses.filter((response) => booleanAnswer(response, code)).length;
+    yesPercentages[code] = round((yesCount / responses.length) * 100, 1);
+  }
+
+  return {
+    enps: round(scoreTotal / (responses.length * 3), 2),
+    q20Share: round(
+      responses.filter((response) => booleanAnswer(response, "Q20")).length /
+        responses.length,
+      2
+    ),
+    yesPercentages
+  };
+}
+
+export function getDemoSurveyResults(
+  surveyId: string,
+  filters: SurveyFilterState = {
+    department: null,
+    employeeCategory: null,
+    productionTenure: null
+  }
+): SurveyResultsData | null {
+  if (surveyId !== DEMO_SURVEY_ID) return null;
+
+  const filtered = demoSurveyResponses.filter((response) => {
+    if (filters.department && response.departmentName !== filters.department) return false;
+    if (
+      filters.employeeCategory &&
+      response.employeeCategory !== filters.employeeCategory
+    ) {
+      return false;
+    }
+    if (
+      filters.productionTenure &&
+      response.productionTenure !== filters.productionTenure
+    ) {
+      return false;
+    }
+    return true;
+  });
+
+  const totals = metricsForResponses(filtered);
+  const departments = (
+    filters.department ? [filters.department] : [...demoSurveyDepartments]
+  ).map((departmentName) => {
+    const departmentResponses = filtered.filter(
+      (response) => response.departmentName === departmentName
+    );
+    const metrics = metricsForResponses(departmentResponses);
+    return {
+      departmentName,
+      respondentCount: departmentResponses.length,
+      enps: metrics.enps,
+      q20Share: metrics.q20Share,
+      yesPercentages: metrics.yesPercentages
+    };
+  });
+
+  const yesNoQuestions = demoSurveyQuestions
+    .filter((question) => question.type === "yes_no" && question.number !== null)
+    .map((question) => ({
+      code: question.code,
+      number: question.number!,
+      title: question.title,
+      overallPercent: totals.yesPercentages[question.code] ?? 0
+    }));
+
+  return {
+    survey: {
+      id: DEMO_SURVEY_ID,
+      title: "Вовлечённость Q3 2026",
+      status: demoSurveyStatus
+    },
+    filters: {
+      departments: [...demoSurveyDepartments],
+      employeeCategories: [...demoSurveyEmployeeCategories],
+      tenureOptions: [...demoSurveyTenureOptions],
+      applied: filters
+    },
+    totals: {
+      enps: totals.enps,
+      q20Share: totals.q20Share,
+      respondentCount: filtered.length,
+      employeeTotal: 134,
+      responseRatePercent: round((filtered.length / 134) * 100, 1)
+    },
+    departments,
+    yesNoQuestions
   };
 }
