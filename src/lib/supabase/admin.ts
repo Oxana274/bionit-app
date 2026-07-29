@@ -48,21 +48,3 @@ export async function deleteUserViaAdminAPI(userId: string) {
 
   return response.json()
 }
-
-// Получение пользователя через Admin API
-export async function getUserViaAdminAPI(userId: string) {
-  const response = await fetch(`${supabaseUrl}/auth/v1/admin/users/${userId}`, {
-    method: 'GET',
-    headers: {
-      'Authorization': `Bearer ${supabaseServiceKey}`,
-      'apikey': supabaseServiceKey,
-    },
-  })
-
-  if (!response.ok) {
-    const error = await response.json()
-    throw new Error(error.message || 'Ошибка получения пользователя')
-  }
-
-  return response.json()
-}
