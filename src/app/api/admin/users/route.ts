@@ -1,7 +1,12 @@
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
-import { cookies } from 'next/headers'
 import { NextResponse } from 'next/server'
-import { createAdminClient } from '@/lib/supabase/admin'
+import { cookies } from 'next/headers'
+import { 
+  createUserViaAdminAPI, 
+  deleteUserViaAdminAPI 
+} from '@/lib/supabase/admin'
+
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 
 // Разрешенные роли для создания
 const ALLOWED_CREATOR_ROLES = ['admin', 'hr_admin']
@@ -14,26 +19,56 @@ const ROLE_HIERARCHY: Record<string, string[]> = {
 
 export async function POST(request: Request) {
   try {
-    // 1. Проверяем авторизацию
+    // 1. Получаем access token из cookies
     const cookieStore = cookies()
-    const supabase = createRouteHandlerClient({ cookies: () => cookieStore })
+    const accessToken = cookieStore.get('sb-access-token')?.value
     
-    const { data: { session } } = await supabase.auth.getSession()
-    if (!session) {
+    if (!accessToken) {
       return NextResponse.json(
         { error: 'Не авторизован' },
         { status: 401 }
       )
     }
 
-    // 2. Проверяем роль текущего пользователя
-    const { data: currentUserProfile, error: profileError } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', session.user.id)
-      .single()
+    // 2. Получаем текущего пользователя через REST
+    const userResponse = await fetch(`${supabaseUrl}/auth/v1/user`, {
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'apikey': supabaseAnonKey,
+      },
+    })
 
-    if (profileError || !currentUserProfile) {
+    if (!userResponse.ok) {
+      return NextResponse.json(
+        { error: 'Не авторизован' },
+        { status: 401 }
+      )
+    }
+
+    const user = await userResponse.json()
+
+    // 3. Проверяем роль текущего пользователя через REST
+    const profileResponse = await fetch(
+      `${supabaseUrl}/rest/v1/profiles?id=eq.${user.id}&select=role`,
+      {
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'apikey': supabaseAnonKey,
+        },
+      }
+    )
+
+    if (!profileResponse.ok) {
+      return NextResponse.json(
+        { error: 'Профиль пользователя не найден' },
+        { status: 404 }
+      )
+    }
+
+    const profiles = await profileResponse.json()
+    const currentUserProfile = profiles[0]
+
+    if (!currentUserProfile) {
       return NextResponse.json(
         { error: 'Профиль пользователя не найден' },
         { status: 404 }
@@ -49,7 +84,7 @@ export async function POST(request: Request) {
       )
     }
 
-    // 3. Получаем данные из тела запроса
+    // 4. Получаем данные из тела запроса
     const body = await request.json()
     const { 
       employee_id, 
@@ -60,7 +95,7 @@ export async function POST(request: Request) {
       password 
     } = body
 
-    // 4. Валидация
+    // 5. Валидация
     if (!employee_id || !full_name || !password) {
       return NextResponse.json(
         { error: 'Табельный номер, ФИО и пароль обязательны' },
@@ -82,7 +117,6 @@ export async function POST(request: Request) {
       )
     }
 
-    // Проверяем, что роль доступна для создания текущим пользователем
     const allowedRoles = ROLE_HIERARCHY[currentRole] || []
     if (!allowedRoles.includes(role)) {
       return NextResponse.json(
@@ -91,26 +125,32 @@ export async function POST(request: Request) {
       )
     }
 
-    // 5. Проверяем, не существует ли уже такой табельный номер
-    const { data: existingProfile, error: checkError } = await supabase
-      .from('profiles')
-      .select('employee_id')
-      .eq('employee_id', employee_id)
-      .maybeSingle()
+    // 6. Проверяем, не существует ли уже такой табельный номер
+    const existingProfileResponse = await fetch(
+      `${supabaseUrl}/rest/v1/profiles?employee_id=eq.${employee_id}&select=employee_id`,
+      {
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'apikey': supabaseAnonKey,
+        },
+      }
+    )
 
-    if (existingProfile) {
-      return NextResponse.json(
-        { error: `Сотрудник с табельным номером ${employee_id} уже существует` },
-        { status: 409 }
-      )
+    if (existingProfileResponse.ok) {
+      const existingProfiles = await existingProfileResponse.json()
+      if (existingProfiles.length > 0) {
+        return NextResponse.json(
+          { error: `Сотрудник с табельным номером ${employee_id} уже существует` },
+          { status: 409 }
+        )
+      }
     }
 
-    // 6. Генерируем технический email
+    // 7. Генерируем технический email
     const email = `${employee_id}@staff.bionit.ru`
 
-    // 7. Создаем пользователя через Admin API
-    const supabaseAdmin = createAdminClient()
-    const { data: authUser, error: authError } = await supabaseAdmin.auth.admin.createUser({
+    // 8. Создаем пользователя через Admin API
+    const authUser = await createUserViaAdminAPI({
       email,
       password,
       email_confirm: true,
@@ -119,67 +159,62 @@ export async function POST(request: Request) {
         full_name,
         phone,
         department_id,
-        role, // Передаем роль в metadata, триггер подхватит
+        role,
       },
     })
 
-    if (authError) {
-      console.error('Auth creation error:', authError)
+    // 9. Ждем, пока триггер создаст профиль
+    await new Promise(resolve => setTimeout(resolve, 1500))
+
+    // 10. Проверяем, что профиль создался
+    const profileCheckResponse = await fetch(
+      `${supabaseUrl}/rest/v1/profiles?id=eq.${authUser.id}&select=*`,
+      {
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'apikey': supabaseAnonKey,
+        },
+      }
+    )
+
+    if (!profileCheckResponse.ok) {
+      // Откатываем создание пользователя
+      await deleteUserViaAdminAPI(authUser.id)
       return NextResponse.json(
-        { error: authError.message },
-        { status: 400 }
+        { error: 'Не удалось создать профиль сотрудника. Обратитесь к администратору.' },
+        { status: 500 }
       )
     }
 
-    // 8. Ждем, пока триггер создаст профиль
-    // Делаем небольшую задержку, чтобы триггер успел сработать
-    await new Promise(resolve => setTimeout(resolve, 500))
+    const createdProfiles = await profileCheckResponse.json()
+    const createdProfile = createdProfiles[0]
 
-    // 9. Проверяем, что профиль создался
-    const { data: createdProfile, error: profileCheckError } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', authUser.user.id)
-      .maybeSingle()
-
-    if (profileCheckError || !createdProfile) {
-      // Если профиль не создался за 500мс, ждем еще
-      await new Promise(resolve => setTimeout(resolve, 1000))
-      
-      const { data: retryProfile, error: retryError } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', authUser.user.id)
-        .maybeSingle()
-
-      if (retryError || !retryProfile) {
-        // Профиль не создался — откатываем создание пользователя
-        await supabaseAdmin.auth.admin.deleteUser(authUser.user.id)
-        return NextResponse.json(
-          { error: 'Не удалось создать профиль сотрудника. Обратитесь к администратору.' },
-          { status: 500 }
-        )
-      }
+    if (!createdProfile) {
+      // Откатываем создание пользователя
+      await deleteUserViaAdminAPI(authUser.id)
+      return NextResponse.json(
+        { error: 'Не удалось создать профиль сотрудника. Обратитесь к администратору.' },
+        { status: 500 }
+      )
     }
 
-    // 10. Возвращаем результат
     return NextResponse.json({
       success: true,
       message: `Пользователь ${full_name} (${employee_id}) успешно создан`,
       user: {
-        id: authUser.user.id,
-        email: authUser.user.email,
+        id: authUser.id,
+        email: authUser.email,
         employee_id,
         full_name,
         role,
-        created_at: authUser.user.created_at,
+        created_at: authUser.created_at,
       },
     })
 
   } catch (error: any) {
     console.error('Unexpected error:', error)
     return NextResponse.json(
-      { error: 'Внутренняя ошибка сервера' },
+      { error: error.message || 'Внутренняя ошибка сервера' },
       { status: 500 }
     )
   }
