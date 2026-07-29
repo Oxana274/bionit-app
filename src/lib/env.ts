@@ -1,25 +1,67 @@
-import { DEFAULT_EMPLOYEE_EMAIL_DOMAIN } from "@/lib/constants";
+// src/lib/env.ts
 
-function trimTrailingSlash(value: string): string {
-  return value.replace(/\/+$/, "");
-}
+const demoMode =
+  process.env.NEXT_PUBLIC_DEMO_MODE === "true";
+
+
+const supabaseUrl =
+  process.env.NEXT_PUBLIC_SUPABASE_URL;
+
+
+const supabaseAnonKey =
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+
 
 export const publicEnv = {
-  supabaseUrl: trimTrailingSlash(process.env.NEXT_PUBLIC_SUPABASE_URL ?? ""),
-  supabaseAnonKey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "",
-  employeeEmailDomain:
-    process.env.NEXT_PUBLIC_EMPLOYEE_EMAIL_DOMAIN ?? DEFAULT_EMPLOYEE_EMAIL_DOMAIN,
-  siteUrl: trimTrailingSlash(process.env.NEXT_PUBLIC_SITE_URL ?? ""),
-  demoMode: process.env.NEXT_PUBLIC_DEMO_MODE === "true"
-} as const;
+
+  demoMode,
+
+  supabaseUrl,
+
+  supabaseAnonKey,
+
+};
+
+
 
 export const isSupabaseConfigured =
-  publicEnv.supabaseUrl.length > 0 && publicEnv.supabaseAnonKey.length > 0;
+Boolean(
+  supabaseUrl &&
+  supabaseAnonKey
+);
 
-export const isDemoMode = publicEnv.demoMode || !isSupabaseConfigured;
 
-export function getServiceRoleKey(): string {
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!key) throw new Error("SUPABASE_SERVICE_ROLE_KEY не настроен.");
-  return key;
+
+/**
+ * В production demo включается только явно
+ *
+ * NEXT_PUBLIC_DEMO_MODE=true
+ *
+ * Никакого автоматического перехода
+ * в демо при ошибке Supabase
+ */
+
+export const isDemoMode =
+  demoMode;
+
+
+
+/**
+ * Проверка конфигурации
+ */
+
+export function checkSupabaseConfig(){
+
+if(
+ !isDemoMode &&
+ !isSupabaseConfigured
+){
+
+throw new Error(
+"Supabase не настроен. Проверьте NEXT_PUBLIC_SUPABASE_URL и NEXT_PUBLIC_SUPABASE_ANON_KEY"
+);
+
+}
+
 }
