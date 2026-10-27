@@ -27,6 +27,7 @@ jobs:
       - name: Set backup filename
         shell: bash
         run: |
+          set -euo pipefail
           echo "BACKUP_DATE=$(date -u +'%Y-%m-%dT%H-%M-%SZ')" >> "$GITHUB_ENV"
 
       - name: Export public schema and data
@@ -37,7 +38,7 @@ jobs:
           set -euo pipefail
 
           if [ -z "${DATABASE_URL:-}" ]; then
-            echo "SUPABASE_DB_URL is not configured."
+            echo "::error::SUPABASE_DB_URL is not configured."
             exit 1
           fi
 
@@ -54,7 +55,10 @@ jobs:
                 --file="/backup/database.dump"
             '
 
-          test -s database.dump
+          if [ ! -s database.dump ]; then
+            echo "::error::Database dump was not created."
+            exit 1
+          fi
 
       - name: Encrypt backup
         env:
@@ -64,7 +68,7 @@ jobs:
           set -euo pipefail
 
           if [ -z "${BACKUP_ENCRYPTION_PASSWORD:-}" ]; then
-            echo "BACKUP_ENCRYPTION_PASSWORD is not configured."
+            echo "::error::BACKUP_ENCRYPTION_PASSWORD is not configured."
             exit 1
           fi
 
@@ -76,10 +80,55 @@ jobs:
             -out "bionit-${BACKUP_DATE}.dump.enc" \
             -pass env:BACKUP_ENCRYPTION_PASSWORD
 
-          test -s "bionit-${BACKUP_DATE}.dump.enc"
+          if [ ! -s "bionit-${BACKUP_DATE}.dump.enc" ]; then
+            echo "::error::Encrypted backup was not created."
+            exit 1
+          fi
+
+          # Удаляем открытый дамп после шифрования.
           rm -f database.dump
 
-      - name: Upload encrypted backup
+      - name: Verify decryption and PostgreSQL dump
+        env:
+          BACKUP_ENCRYPTION_PASSWORD: ${{ secrets.BACKUP_ENCRYPTION_PASSWORD }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          encrypted_file="bionit-${BACKUP_DATE}.dump.enc"
+          decrypted_file="database.verify.dump"
+
+          # Удаляем временный расшифрованный файл даже при ошибке.
+          trap 'rm -f "$decrypted_file" database.dump' EXIT
+
+          if [ ! -s "$encrypted_file" ]; then
+            echo "::error::Encrypted backup file is missing."
+            exit 1
+          fi
+
+          # Проверяем, что архив расшифровывается тем же паролем.
+          openssl enc -d -aes-256-cbc \
+            -pbkdf2 \
+            -iter 600000 \
+            -in "$encrypted_file" \
+            -out "$decrypted_file" \
+            -pass env:BACKUP_ENCRYPTION_PASSWORD
+
+          if [ ! -s "$decrypted_file" ]; then
+            echo "::error::Decrypted dump is empty."
+            exit 1
+          fi
+
+          # Проверяем, что pg_restore распознаёт формат PostgreSQL.
+          docker run --rm \
+            -v "$GITHUB_WORKSPACE:/backup:ro" \
+            postgres:17-alpine \
+            pg_restore --list "/backup/$decrypted_file" \
+            > /dev/null
+
+          echo "Backup decryption and PostgreSQL format verification succeeded."
+
+      - name: Upload verified encrypted backup
         uses: actions/upload-artifact@v4
         with:
           name: bionit-database-${{ env.BACKUP_DATE }}
