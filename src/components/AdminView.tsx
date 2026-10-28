@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
@@ -70,7 +71,6 @@ interface NewEmployeeValues {
   employeeNumber: string;
   firstName: string;
   lastName: string;
-  phone?: string;
   position: string;
   departmentId: string;
   role: UserRole;
@@ -106,10 +106,12 @@ export function AdminView({ initial }: { initial: AdminDashboardData }) {
           if (!cancelled) setSurveyControlAvailable(false);
           return;
         }
+
         if (!response.ok || !isSurveyAdminControl(body)) {
           const errorBody = body as { error?: string } | null;
           throw new Error(errorBody?.error ?? "Не удалось загрузить опрос.");
         }
+
         if (!cancelled) setSurvey(body);
       } catch (error) {
         if (!cancelled) {
@@ -125,6 +127,7 @@ export function AdminView({ initial }: { initial: AdminDashboardData }) {
     };
 
     void loadSurveyControl();
+
     return () => {
       cancelled = true;
     };
@@ -158,22 +161,27 @@ export function AdminView({ initial }: { initial: AdminDashboardData }) {
 
   const updateOrder = async (id: string, status: OrderStatus) => {
     setOrderUpdating(id);
+
     try {
       const response = await fetch(`/api/admin/orders/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status })
       });
+
       const body = (await response.json()) as {
         error?: string;
         status?: OrderStatus;
       };
+
       if (!response.ok) {
         throw new Error(body.error ?? "Не удалось обновить заказ.");
       }
+
       setOrders((current) =>
         current.map((order) => (order.id === id ? { ...order, status } : order))
       );
+
       void message.success("Статус заказа обновлён");
     } catch (error) {
       void message.error(
@@ -186,24 +194,29 @@ export function AdminView({ initial }: { initial: AdminDashboardData }) {
 
   const updateRole = async (id: string, role: UserRole) => {
     setRoleUpdating(id);
+
     try {
       const response = await fetch(`/api/admin/employees/${id}/access`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ role })
       });
+
       const body = (await response.json()) as {
         error?: string;
         role?: UserRole;
       };
+
       if (!response.ok) {
         throw new Error(body.error ?? "Не удалось изменить роль.");
       }
+
       setEmployees((current) =>
         current.map((employee) =>
           employee.id === id ? { ...employee, role } : employee
         )
       );
+
       void message.success("Права доступа обновлены");
     } catch (error) {
       void message.error(
@@ -216,22 +229,27 @@ export function AdminView({ initial }: { initial: AdminDashboardData }) {
 
   const addEmployee = async (values: NewEmployeeValues) => {
     setEmployeeSubmitting(true);
+
     try {
       const response = await fetch("/api/admin/employees", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(values)
       });
+
       const body = (await response.json()) as {
         error?: string;
         employee?: AdminEmployeeRow;
       };
+
       if (!response.ok || !body.employee) {
         throw new Error(body.error ?? "Не удалось добавить сотрудника.");
       }
+
       setEmployees((current) => [body.employee!, ...current]);
       setEmployeeModalOpen(false);
       form.resetFields();
+
       void message.success("Сотрудник добавлен и получил учётную запись");
     } catch (error) {
       void message.error(
@@ -244,24 +262,30 @@ export function AdminView({ initial }: { initial: AdminDashboardData }) {
 
   const toggleSurvey = async () => {
     if (!survey) return;
+
     const nextStatus: SurveyStatus =
       survey.status === "active" ? "closed" : "active";
 
     setSurveyUpdating(true);
+
     try {
       const response = await fetch("/api/admin/surveys/current", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ surveyId: survey.id, status: nextStatus })
       });
+
       const body = (await response.json().catch(() => null)) as unknown;
+
       if (!response.ok || !isSurveyAdminControl(body)) {
         const errorBody = body as { error?: string } | null;
         throw new Error(
           errorBody?.error ?? "Не удалось изменить статус опроса."
         );
       }
+
       setSurvey(body);
+
       void message.success(
         nextStatus === "active" ? "Опрос открыт" : "Опрос закрыт"
       );
@@ -432,6 +456,7 @@ export function AdminView({ initial }: { initial: AdminDashboardData }) {
                 </p>
               </div>
             </div>
+
             {survey ? (
               <span
                 className={`${surveyStyles.status} ${
@@ -455,6 +480,7 @@ export function AdminView({ initial }: { initial: AdminDashboardData }) {
                 </Button>
               </Link>
             ) : null}
+
             <Button
               type={survey?.status === "active" ? "default" : "primary"}
               danger={survey?.status === "active"}
@@ -525,128 +551,4 @@ export function AdminView({ initial }: { initial: AdminDashboardData }) {
                   <Table<AdminEmployeeRow>
                     rowKey="id"
                     columns={employeeColumns}
-                    dataSource={employees}
-                    pagination={{ pageSize: 10, hideOnSinglePage: true }}
-                    scroll={{ x: 1050 }}
-                  />
-                </div>
-              )
-            }
-          ]}
-        />
-      </section>
-
-      <Modal
-        open={employeeModalOpen}
-        onCancel={() => !employeeSubmitting && setEmployeeModalOpen(false)}
-        footer={null}
-        centered
-        width={650}
-        title="Новый сотрудник"
-        destroyOnClose
-      >
-        <p className="modal-description">
-          Профиль и учётная запись Supabase Auth будут созданы одновременно.
-          Передайте сотруднику временный пароль безопасным способом.
-        </p>
-        <Form<NewEmployeeValues>
-          form={form}
-          layout="vertical"
-          requiredMark={false}
-          onFinish={(values) => void addEmployee(values)}
-          initialValues={{
-            role: "employee",
-            hiredAt: new Date().toISOString().slice(0, 10)
-          }}
-        >
-          <div className="form-grid two">
-            <Form.Item
-              name="employeeNumber"
-              label="Табельный номер"
-              rules={[
-                { required: true, message: "Введите табельный номер." },
-                {
-                  pattern: /^[A-Za-zА-Яа-я0-9._-]+$/,
-                  message: "Только буквы, цифры, точка, дефис или подчёркивание."
-                }
-              ]}
-            >
-              <Input autoComplete="off" />
-            </Form.Item>
-            <Form.Item name="phone" label="Телефон">
-              <Input placeholder="+7 900 000-00-00" autoComplete="tel" />
-            </Form.Item>
-            <Form.Item
-              name="firstName"
-              label="Имя"
-              rules={[{ required: true, message: "Введите имя." }]}
-            >
-              <Input />
-            </Form.Item>
-            <Form.Item
-              name="lastName"
-              label="Фамилия"
-              rules={[{ required: true, message: "Введите фамилию." }]}
-            >
-              <Input />
-            </Form.Item>
-            <Form.Item
-              name="position"
-              label="Должность"
-              rules={[{ required: true, message: "Введите должность." }]}
-            >
-              <Input />
-            </Form.Item>
-            <Form.Item
-              name="departmentId"
-              label="Подразделение"
-              rules={[{ required: true, message: "Выберите подразделение." }]}
-            >
-              <Select
-                options={initial.departments.map((department) => ({
-                  value: department.id,
-                  label: department.name
-                }))}
-              />
-            </Form.Item>
-            <Form.Item
-              name="role"
-              label="Роль"
-              rules={[{ required: true, message: "Выберите роль." }]}
-            >
-              <Select options={ROLE_OPTIONS} />
-            </Form.Item>
-            <Form.Item
-              name="hiredAt"
-              label="Дата приёма"
-              rules={[{ required: true, message: "Укажите дату приёма." }]}
-            >
-              <Input type="date" />
-            </Form.Item>
-          </div>
-          <Form.Item
-            name="password"
-            label="Временный пароль"
-            rules={[
-              { required: true, message: "Введите временный пароль." },
-              { min: 8, message: "Не менее 8 символов." }
-            ]}
-          >
-            <Input.Password autoComplete="new-password" />
-          </Form.Item>
-          <div className="modal-actions">
-            <Button
-              onClick={() => setEmployeeModalOpen(false)}
-              disabled={employeeSubmitting}
-            >
-              Отмена
-            </Button>
-            <Button type="primary" htmlType="submit" loading={employeeSubmitting}>
-              Создать сотрудника
-            </Button>
-          </div>
-        </Form>
-      </Modal>
-    </div>
-  );
-}
+                   
