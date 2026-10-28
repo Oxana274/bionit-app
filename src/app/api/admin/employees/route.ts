@@ -87,6 +87,22 @@ function errorResponse(message: string, status: number) {
   return NextResponse.json({ error: message }, { status });
 }
 
+function getErrorStatus(message: string): number {
+  if (/уже существует|duplicate key|23505/i.test(message)) {
+    return 409;
+  }
+
+  if (/прав|авторизац|недостаточно доступа/i.test(message)) {
+    return 403;
+  }
+
+  if (/не найден|неактивно|не относится/i.test(message)) {
+    return 400;
+  }
+
+  return 500;
+}
+
 export async function POST(request: Request) {
   const accessToken = getAccessTokenFromCookies();
 
@@ -95,12 +111,10 @@ export async function POST(request: Request) {
   }
 
   let createdAuthUserId: string | null = null;
+  let createdProfileId: string | null = null;
 
   try {
-    /*
-     * 1. Проверяем права до обработки операции создания.
-     * Функция должна проверять роль на сервере.
-     */
+    // 1. Проверяем административные права на сервере.
     const admin = await assertAdmin(accessToken);
 
     if (isDemoMode) {
@@ -110,9 +124,7 @@ export async function POST(request: Request) {
       );
     }
 
-    /*
-     * 2. Проверяем тело запроса.
-     */
+    // 2. Читаем и проверяем входные данные.
     let body: CreateEmployeeBody;
 
     try {
@@ -181,9 +193,7 @@ export async function POST(request: Request) {
       );
     }
 
-    /*
-     * 3. Определяем компанию администратора.
-     */
+    // 3. Определяем компанию администратора.
     const companies = await adminRest.dbRequest<CompanyRow[]>(
       `profiles?id=eq.${encodeURIComponent(admin.id)}` +
         "&select=company_id&limit=1",
@@ -198,10 +208,7 @@ export async function POST(request: Request) {
       );
     }
 
-    /*
-     * 4. Проверяем подразделение.
-     * Оно должно принадлежать компании и быть активным.
-     */
+    // 4. Проверяем активное подразделение этой компании.
     const departments = await adminRest.dbRequest<DepartmentRow[]>(
       "departments" +
         `?id=eq.${encodeURIComponent(departmentId)}` +
@@ -219,12 +226,7 @@ export async function POST(request: Request) {
       );
     }
 
-    /*
-     * 5. Проверяем табельный номер.
-     * Проверка не заменяет ограничения уникальности в БД,
-     * поэтому окончательно отсутствие дубликата должен
-     * гарантировать сам механизм хранения данных.
-     */
+    // 5. Проверяем отсутствие дубликата табельного номера.
     const existingProfiles = await adminRest.dbRequest<
       Array<{ id: string }>
     >(
@@ -241,13 +243,8 @@ export async function POST(request: Request) {
       );
     }
 
-    /*
-     * 6. Создаём Auth-пользователя.
-     *
-     * В metadata намеренно НЕ передаём role.
-     * Триггер handle_new_auth_user создаёт профиль
-     * с безопасной ролью employee.
-     */
+    // 6. Создаём Auth-пользователя.
+    // Роль в user_metadata намеренно не передаём.
     const email = employeeNumberToEmail(
       employeeNumber,
       publicEnv.employeeEmailDomain
@@ -279,9 +276,7 @@ export async function POST(request: Request) {
 
     createdAuthUserId = authUser.id;
 
-    /*
-     * 7. Проверяем профиль, созданный триггером.
-     */
+    // 7. Проверяем профиль, созданный триггером.
     const profiles = await adminRest.dbRequest<ProfileRow[]>(
       "profiles" +
         `?auth_user_id=eq.${encodeURIComponent(authUser.id)}` +
@@ -299,10 +294,8 @@ export async function POST(request: Request) {
       );
     }
 
-    /*
-     * 8. Проверяем, что профиль заполнен ожидаемыми данными.
-     * Не допускаем выдачу успешного результата при несовпадениях.
-     */
+    createdProfileId = profile.id;
+
     const profileMatches =
       profile.auth_user_id === authUser.id &&
       profile.company_id === companyId &&
@@ -316,15 +309,11 @@ export async function POST(request: Request) {
 
     if (!profileMatches) {
       throw new Error(
-        "Созданный профиль не соответствует данным сотрудника. " +
-          "Операция будет отменена."
+        "Созданный профиль не соответствует данным сотрудника."
       );
     }
 
-    /*
-     * 9. Назначаем выбранную роль через серверный Admin API.
-     * Клиент не может выполнить этот шаг напрямую.
-     */
+    // 8. Назначаем выбранную роль серверным административным запросом.
     const updatedProfiles = await adminRest.dbRequest<ProfileRow[]>(
       "profiles" +
         `?id=eq.${encodeURIComponent(profile.id)}` +
@@ -333,4 +322,81 @@ export async function POST(request: Request) {
         `&select=${PROFILE_SELECT}`,
       {
         method: "PATCH",
-        headers
+        headers: {
+          Prefer: "return=representation",
+        },
+        body: JSON.stringify({
+          role,
+        }),
+      }
+    );
+
+    const updatedProfile = updatedProfiles[0];
+
+    if (
+      !updatedProfile ||
+      updatedProfile.auth_user_id !== authUser.id ||
+      updatedProfile.company_id !== companyId ||
+      updatedProfile.role !== role ||
+      updatedProfile.status !== "active"
+    ) {
+      throw new Error(
+        "Не удалось подтвердить назначение роли сотруднику."
+      );
+    }
+
+    // 9. Формируем результат для интерфейса.
+    const employee: AdminEmployeeRow = {
+      id: updatedProfile.id,
+      employeeNumber: updatedProfile.employee_number,
+      fullName:
+        `${updatedProfile.first_name} ${updatedProfile.last_name}`,
+      departmentName:
+        updatedProfile.departments?.name ?? department.name,
+      position: updatedProfile.position,
+      role: updatedProfile.role,
+      status: updatedProfile.status,
+      authLinked: Boolean(updatedProfile.auth_user_id),
+    };
+
+    return NextResponse.json({ employee }, { status: 201 });
+  } catch (error: unknown) {
+    const message =
+      error instanceof Error
+        ? error.message
+        : "Не удалось создать сотрудника.";
+
+    console.error("POST /api/admin/employees:", error);
+
+    // 10. Откат: удаляем профиль, затем Auth-пользователя.
+    // Если откат не удался, записываем ошибку в серверный лог.
+    if (createdProfileId) {
+      try {
+        await adminRest.dbRequest(
+          "profiles" +
+            `?id=eq.${encodeURIComponent(createdProfileId)}` +
+            `&auth_user_id=eq.${encodeURIComponent(createdAuthUserId ?? "")}`,
+          { method: "DELETE" }
+        );
+      } catch (rollbackError) {
+        console.error(
+          "Не удалось удалить профиль после ошибки:",
+          rollbackError
+        );
+      }
+    }
+
+    if (createdAuthUserId) {
+      try {
+        await adminRest.deleteUser(createdAuthUserId);
+      } catch (rollbackError) {
+        console.error(
+          "Не удалось удалить Auth-пользователя после ошибки:",
+          rollbackError
+        );
+      }
+    }
+
+    return errorResponse(message, getErrorStatus(message));
+  }
+}
