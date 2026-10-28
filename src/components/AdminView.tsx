@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
@@ -71,6 +70,7 @@ interface NewEmployeeValues {
   employeeNumber: string;
   firstName: string;
   lastName: string;
+  phone?: string;
   position: string;
   departmentId: string;
   role: UserRole;
@@ -106,12 +106,10 @@ export function AdminView({ initial }: { initial: AdminDashboardData }) {
           if (!cancelled) setSurveyControlAvailable(false);
           return;
         }
-
         if (!response.ok || !isSurveyAdminControl(body)) {
           const errorBody = body as { error?: string } | null;
           throw new Error(errorBody?.error ?? "Не удалось загрузить опрос.");
         }
-
         if (!cancelled) setSurvey(body);
       } catch (error) {
         if (!cancelled) {
@@ -555,4 +553,100 @@ export function AdminView({ initial }: { initial: AdminDashboardData }) {
           form={form}
           layout="vertical"
           requiredMark={false}
-          onFinish={(values)
+          onFinish={(values) => void addEmployee(values)}
+          initialValues={{
+            role: "employee",
+            hiredAt: new Date().toISOString().slice(0, 10)
+          }}
+        >
+          <div className="form-grid two">
+            <Form.Item
+              name="employeeNumber"
+              label="Табельный номер"
+              rules={[
+                { required: true, message: "Введите табельный номер." },
+                {
+                  pattern: /^[A-Za-zА-Яа-я0-9._-]+$/,
+                  message: "Только буквы, цифры, точка, дефис или подчёркивание."
+                }
+              ]}
+            >
+              <Input autoComplete="off" />
+            </Form.Item>
+            <Form.Item name="phone" label="Телефон">
+              <Input placeholder="+7 900 000-00-00" autoComplete="tel" />
+            </Form.Item>
+            <Form.Item
+              name="firstName"
+              label="Имя"
+              rules={[{ required: true, message: "Введите имя." }]}
+            >
+              <Input />
+            </Form.Item>
+            <Form.Item
+              name="lastName"
+              label="Фамилия"
+              rules={[{ required: true, message: "Введите фамилию." }]}
+            >
+              <Input />
+            </Form.Item>
+            <Form.Item
+              name="position"
+              label="Должность"
+              rules={[{ required: true, message: "Введите должность." }]}
+            >
+              <Input />
+            </Form.Item>
+            <Form.Item
+              name="departmentId"
+              label="Подразделение"
+              rules={[{ required: true, message: "Выберите подразделение." }]}
+            >
+              <Select
+                options={initial.departments.map((department) => ({
+                  value: department.id,
+                  label: department.name
+                }))}
+              />
+            </Form.Item>
+            <Form.Item
+              name="role"
+              label="Роль"
+              rules={[{ required: true, message: "Выберите роль." }]}
+            >
+              <Select options={ROLE_OPTIONS} />
+            </Form.Item>
+            <Form.Item
+              name="hiredAt"
+              label="Дата приёма"
+              rules={[{ required: true, message: "Укажите дату приёма." }]}
+            >
+              <Input type="date" />
+            </Form.Item>
+          </div>
+          <Form.Item
+            name="password"
+            label="Временный пароль"
+            rules={[
+              { required: true, message: "Введите временный пароль." },
+              { min: 8, message: "Не менее 8 символов." }
+            ]}
+          >
+            <Input.Password autoComplete="new-password" />
+          </Form.Item>
+          <div className="modal-actions">
+            <Button
+              onClick={() => setEmployeeModalOpen(false)}
+              disabled={employeeSubmitting}
+            >
+              Отмена
+            </Button>
+            <Button type="primary" htmlType="submit" loading={employeeSubmitting}>
+              Создать сотрудника
+            </Button>
+          </div>
+        </Form>
+      </Modal>
+    </div>
+  );
+}
