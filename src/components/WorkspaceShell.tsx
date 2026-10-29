@@ -1,3 +1,4 @@
+
 "use client";
 
 import type { ReactNode } from "react";
@@ -16,7 +17,6 @@ const mainNavigation: Array<{
   icon: IconName;
 }> = [
   { href: "/home", label: "Главная", icon: "home" },
-  { href: "/onboarding", label: "Онбординг", icon: "onboarding" },
   { href: "/learning", label: "Обучение", icon: "learning" },
   { href: "/rating", label: "Рейтинг", icon: "rating" },
   { href: "/more", label: "Ещё", icon: "more" }
@@ -27,7 +27,9 @@ const extendedNavigation: Array<{
   label: string;
   icon: IconName;
 }> = [
-  ...mainNavigation.slice(0, 4),
+  { href: "/home", label: "Главная", icon: "home" },
+  { href: "/learning", label: "Обучение", icon: "learning" },
+  { href: "/rating", label: "Рейтинг", icon: "rating" },
   { href: "/surveys", label: "Опросы", icon: "document" },
   { href: "/achievements", label: "Достижения", icon: "achievements" },
   { href: "/badges", label: "Бейджи", icon: "badges" },
@@ -50,6 +52,7 @@ export function WorkspaceShell({
 }) {
   const pathname = usePathname();
   const { signOut } = useSession();
+
   const navigation = [
     ...extendedNavigation,
     ...(["hr", "admin"].includes(profile.role)
@@ -69,6 +72,7 @@ export function WorkspaceShell({
         <Link href="/home" className="sidebar-logo">
           <BrandLogo />
         </Link>
+
         <nav className="sidebar-nav" aria-label="Основная навигация">
           {navigation.map((item) => (
             <Link
@@ -85,6 +89,7 @@ export function WorkspaceShell({
             </Link>
           ))}
         </nav>
+
         <div className="sidebar-profile">
           <EmployeeAvatar fullName={profile.fullName} />
           <div>
@@ -92,6 +97,7 @@ export function WorkspaceShell({
             <small>{profile.position}</small>
           </div>
         </div>
+
         <Button
           type="text"
           className="sidebar-logout"
@@ -111,6 +117,7 @@ export function WorkspaceShell({
               <small>{profile.departmentName}</small>
             </span>
           </Link>
+
           <div className="header-actions">
             <BionicCoin value={profile.balance} compact />
             <EmployeeAvatar fullName={profile.fullName} size={40} />
