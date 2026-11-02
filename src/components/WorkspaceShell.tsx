@@ -45,9 +45,11 @@ function active(pathname: string, href: string): boolean {
 
 export function WorkspaceShell({
   profile,
+  academyAdmin = false,
   children
 }: {
   profile: ProfileSummary;
+  academyAdmin?: boolean;
   children: ReactNode;
 }) {
   const pathname = usePathname();
@@ -55,6 +57,7 @@ export function WorkspaceShell({
 
   const navigation = [
     ...extendedNavigation,
+    ...(academyAdmin ? [{ href: "/academy-admin", label: "Академия HR", icon: "learning" as IconName }] : []),
     ...(["hr", "admin"].includes(profile.role)
       ? [
           {
