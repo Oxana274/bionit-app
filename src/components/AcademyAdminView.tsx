@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { App, Button, DatePicker, Empty, Form, Input, Modal, Select, Table, Tag } from "antd";
+import { App, Button, DatePicker, Empty, Form, Input, Modal, Progress, Select, Table, Tag } from "antd";
 import type { TableColumnsType } from "antd";
 import type { Dayjs } from "dayjs";
 import { PageHeader } from "@/components/Brand";
@@ -11,10 +11,24 @@ interface AcademyEmployee { id: string; employeeNumber: string; fullName: string
 interface AcademyCourse { id: string; title: string; category: string; durationMinutes: number; reward: number; }
 interface AssignmentCourse { id: string; title: string; status: string; }
 interface AcademyAssignment { id: string; employee: string; employeeNumber: string; dueDate: string | null; status: string; assignedAt: string; completedAt: string | null; cancelledAt: string | null; cancellationReason: string | null; courses: AssignmentCourse[]; }
-interface AcademyPayload { employees: AcademyEmployee[]; courses: AcademyCourse[]; assignments: AcademyAssignment[]; }
+interface AcademyReportRow {
+  assignmentId: string; assignmentCourseId: string; employee: string;
+  employeeNumber: string; department: string; course: string;
+  dueDate: string | null; assignedAt: string; startedAt: string | null;
+  completedAt: string | null; status: string; completedModules: number;
+  totalModules: number; progressPercent: number; bestScore: number | null;
+  attemptsUsed: number; attemptsLimit: number;
+}
+interface AcademyPayload { employees: AcademyEmployee[]; courses: AcademyCourse[]; assignments: AcademyAssignment[]; report: AcademyReportRow[]; }
 interface AssignmentFormValues { profileId: string; classIds: string[]; dueDate?: Dayjs | null; }
 
 const STATUS_LABEL: Record<string, string> = { assigned: "Назначено", in_progress: "В процессе", completed: "Завершено", overdue: "Просрочено", cancelled: "Отменено", suspended: "Приостановлено" };
+function reportDate(value: string | null): string {
+  if (!value) return "";
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? "" : date.toLocaleDateString("ru-RU");
+}
+
 function StatusTag({ status }: { status: string }) {
   const color = status === "completed" ? "success" : status === "cancelled" ? "default" : status === "overdue" ? "error" : status === "in_progress" ? "processing" : "blue";
   return <Tag color={color}>{STATUS_LABEL[status] ?? status}</Tag>;
@@ -22,7 +36,10 @@ function StatusTag({ status }: { status: string }) {
 
 export function AcademyAdminView() {
   const { message } = App.useApp();
-  const [data, setData] = useState<AcademyPayload>({ employees: [], courses: [], assignments: [] });
+  const [data, setData] = useState<AcademyPayload>({ employees: [], courses: [], assignments: [], report: [] });
+  const [reportEmployee, setReportEmployee] = useState("all");
+  const [reportStatus, setReportStatus] = useState("all");
+  const [reportDepartment, setReportDepartment] = useState("all");
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
@@ -37,7 +54,7 @@ export function AcademyAdminView() {
       const response = await fetch("/api/admin/academy", { cache: "no-store" });
       const body = await response.json() as AcademyPayload & { error?: string };
       if (!response.ok) throw new Error(body.error ?? "Не удалось загрузить Академию.");
-      setData({ employees: body.employees ?? [], courses: body.courses ?? [], assignments: body.assignments ?? [] });
+      setData({ employees: body.employees ?? [], courses: body.courses ?? [], assignments: body.assignments ?? [], report: body.report ?? [] });
     } catch (error) {
       void message.error(error instanceof Error ? error.message : "Ошибка загрузки Академии.");
     } finally {
@@ -91,6 +108,24 @@ export function AcademyAdminView() {
 
   const activeAssignments = data.assignments.filter((item) => !["cancelled", "completed"].includes(item.status)).length;
   const completedAssignments = data.assignments.filter((item) => item.status === "completed").length;
+  const departments = Array.from(new Set(data.report.map((row) => row.department).filter(Boolean))).sort((a, b) => a.localeCompare(b, "ru"));
+  const reportRows = data.report.filter((row) =>
+    (reportEmployee === "all" || row.employeeNumber === reportEmployee) &&
+    (reportStatus === "all" || row.status === reportStatus) &&
+    (reportDepartment === "all" || row.department === reportDepartment)
+  );
+  const exportReport = () => {
+    const headers = ["Сотрудник", "Табельный номер", "Подразделение", "Курс", "Статус", "Прогресс, %", "Модули завершены", "Лучший результат теста, %", "Попыток использовано", "Лимит попыток", "Назначено", "Срок", "Начато", "Завершено"];
+    const rows = reportRows.map((row) => [row.employee, row.employeeNumber, row.department, row.course, STATUS_LABEL[row.status] ?? row.status, row.progressPercent, `${row.completedModules} из ${row.totalModules}`, row.bestScore ?? "", row.attemptsUsed, row.attemptsLimit, reportDate(row.assignedAt), reportDate(row.dueDate), reportDate(row.startedAt), reportDate(row.completedAt)]);
+    const csv = [headers, ...rows].map((line) => line.map((value) => `"${String(value ?? "").replace(/"/g, '""')}"`).join(";")).join("\r\n");
+    const blob = new Blob(["\uFEFF", csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `academy-report-${new Date().toISOString().slice(0, 10)}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
 
   return <div className="admin-page">
     <div className="admin-header-row">
@@ -108,6 +143,33 @@ export function AcademyAdminView() {
     <section className="admin-workspace">
       <div className="section-title"><div><span className="eyebrow">Контроль обучения</span><h2>Назначения сотрудников</h2></div><Button icon={<Icon name="success" size={16}/>} onClick={() => void load()} loading={loading}>Обновить</Button></div>
       {data.assignments.length ? <Table<AcademyAssignment> rowKey="id" columns={columns} dataSource={data.assignments} loading={loading} pagination={{ pageSize: 10, hideOnSinglePage: true }} scroll={{ x: 950 }}/> : <div style={{ padding: 32 }}><Empty description={loading ? "Загрузка назначений…" : "Назначений пока нет"}/></div>}
+    </section>
+
+    <section className="admin-workspace" style={{ marginTop: 24 }}>
+      <div className="section-title">
+        <div><span className="eyebrow">Аналитика Академии</span><h2>Отчёт по обучению</h2></div>
+        <Button onClick={exportReport} disabled={!reportRows.length}>Экспорт в Excel (CSV)</Button>
+      </div>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 12, marginBottom: 18 }}>
+        <Select aria-label="Фильтр по сотруднику" value={reportEmployee} onChange={setReportEmployee} style={{ minWidth: 220 }} options={[{ value: "all", label: "Все сотрудники" }, ...Array.from(new Map(data.report.map((row) => [row.employeeNumber, { value: row.employeeNumber, label: `${row.employee} · №${row.employeeNumber}` }])).values())]} />
+        <Select aria-label="Фильтр по подразделению" value={reportDepartment} onChange={setReportDepartment} style={{ minWidth: 200 }} options={[{ value: "all", label: "Все подразделения" }, ...departments.map((department) => ({ value: department, label: department }))]} />
+        <Select aria-label="Фильтр по статусу" value={reportStatus} onChange={setReportStatus} style={{ minWidth: 190 }} options={[{ value: "all", label: "Все статусы" }, ...Object.entries(STATUS_LABEL).filter(([key]) => ["assigned", "in_progress", "completed", "overdue", "cancelled"].includes(key)).map(([value, label]) => ({ value, label }))]} />
+      </div>
+      {reportRows.length ? <Table<AcademyReportRow>
+        rowKey="assignmentCourseId" dataSource={reportRows}
+        pagination={{ pageSize: 10, hideOnSinglePage: true }} scroll={{ x: 1450 }}
+        columns={[
+          { title: "Сотрудник", dataIndex: "employee", key: "employee", fixed: "left", width: 190, render: (value: string, row) => <div className="table-primary"><strong>{value}</strong><span>Таб. № {row.employeeNumber}</span></div> },
+          { title: "Подразделение", dataIndex: "department", key: "department", width: 160, render: (value: string) => value || "Без подразделения" },
+          { title: "Курс", dataIndex: "course", key: "course", width: 220 },
+          { title: "Статус", dataIndex: "status", key: "status", width: 130, render: (value: string) => <StatusTag status={value}/> },
+          { title: "Прогресс", key: "progress", width: 180, render: (_, row) => <div style={{ minWidth: 130 }}><Progress percent={row.progressPercent} size="small"/><small>{row.completedModules} из {row.totalModules} модулей</small></div> },
+          { title: "Тест", key: "test", width: 120, render: (_, row) => row.bestScore === null ? "Не проходил" : `${row.bestScore}%` },
+          { title: "Попытки", key: "attempts", width: 100, render: (_, row) => `${row.attemptsUsed} из ${row.attemptsLimit}` },
+          { title: "Срок", dataIndex: "dueDate", key: "dueDate", width: 115, render: (value: string | null) => reportDate(value) || "—" },
+          { title: "Завершено", dataIndex: "completedAt", key: "completedAt", width: 115, render: (value: string | null) => reportDate(value) || "—" }
+        ]}
+      /> : <Empty description="По выбранным фильтрам назначений нет" />}
     </section>
 
     <Modal title="Назначить обучение сотруднику" open={modalOpen} onCancel={() => !submitting && setModalOpen(false)} footer={null} destroyOnClose width={620}>

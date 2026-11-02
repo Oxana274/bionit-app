@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import Link from "next/link";
 import { App, Button, Collapse, Drawer, Progress, Radio, Result, Tabs } from "antd";
 import { CourseArtwork, PageHeader, StatusPill } from "@/components/Brand";
@@ -16,7 +16,7 @@ export function LearningCatalog({ courses }: { courses: LearningClassSummary[] }
     <PageHeader eyebrow="Академия Бионит" title="Обучение" description="Короткие курсы, практическая теория и тесты с порогом 90%."/>
     <section className="learning-summary"><div><span className="icon-box"><Icon name="learning"/></span><div><strong>{passed} из {courses.length}</strong><span>курсов пройдено</span></div></div><Progress percent={Math.round((passed / Math.max(courses.length, 1)) * 100)} showInfo={false}/><small>На каждый тест доступно не более трёх попыток.</small></section>
     <div className="filter-row">{categories.map((category) => <button type="button" key={category} className={filter === category ? "filter-chip active" : "filter-chip"} onClick={() => setFilter(category)}>{category === "all" ? "Все курсы" : category}</button>)}</div>
-    <div className="course-grid">{visible.map((course) => <Link href={`/learning/${course.id}`} className="course-card" key={course.id}><CourseArtwork course={course}/><div className="course-card-body"><div className="course-card-top"><span>{course.category}</span><StatusPill status={course.status}/></div><h2>{course.title}</h2><p>{course.description}</p><div className="course-meta"><span><Icon name="clock" size={16}/>{course.durationMinutes} мин</span><span><Icon name="book" size={16}/>{course.modulesCount} модуля</span><span><Icon name="coin" size={16}/>{course.reward}</span></div>{course.progressPercent > 0 ? <Progress percent={course.progressPercent} showInfo={false}/> : null}</div></Link>)}</div>
+    <div className="course-grid">{visible.map((course) => <Link href={`/learning/${course.id}`} className="course-card" key={course.id}><CourseArtwork course={course}/><div className="course-card-body"><div className="course-card-top"><span>{course.category}</span><StatusPill status={course.status}/></div><h2>{course.title}</h2><p>{course.description}</p><div className="course-meta"><span><Icon name="clock" size={16}/>{course.durationMinutes} мин</span><span><Icon name="book" size={16}/>{course.modulesCount} модуля</span><span><Icon name="coin" size={16}/>{course.reward}</span></div>{course.progressPercent > 0 ? <Progress percent={course.modules.length ? Math.round((completed / course.modules.length) * 100) : 0} showInfo={false}/> : null}</div></Link>)}</div>
   </>;
 }
 
@@ -26,14 +26,34 @@ export function LearningClassView({ course }: { course: LearningClassDetail }) {
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [result, setResult] = useState<LearningAttemptResult | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  const completed = course.modules.filter((item) => item.completed).length;
+  const [completingModuleId, setCompletingModuleId] = useState<string | null>(null);
+  const [completedModuleIds, setCompletedModuleIds] = useState<string[]>([]);
+  const completed = course.modules.filter((item) => item.completed || completedModuleIds.includes(item.id)).length;
   const allAnswered = Object.keys(answers).length === course.questions.length;
 
-  const moduleItems = useMemo(() => course.modules.map((module, index) => ({
-    key: module.id,
-    label: <div className="module-label"><span className={module.completed ? "module-number done" : "module-number"}>{module.completed ? <Icon name="check" size={16}/> : index + 1}</span><div><strong>{module.title}</strong><small>{module.durationMinutes} мин</small></div></div>,
-    children: <div className="module-content"><p>{module.content}</p><div className="theory-note"><Icon name="spark"/><span>Зафиксируйте главный вывод и обсудите непонятные моменты с наставником.</span></div></div>
-  })), [course.modules]);
+    const completeModule = useCallback(async (moduleId: string) => {
+    setCompletingModuleId(moduleId);
+    try {
+      const response = await fetch(`/api/learning/modules/${moduleId}/complete`, { method: "POST" });
+      const body = await response.json() as { data?: { progressPercent: number }; error?: string };
+      if (!response.ok || !body.data) throw new Error(body.error ?? "Не удалось сохранить прогресс модуля.");
+      setCompletedModuleIds((current) => current.includes(moduleId) ? current : [...current, moduleId]);
+      void message.success("Прогресс модуля сохранён.");
+    } catch (error) {
+      void message.error(error instanceof Error ? error.message : "Ошибка сохранения прогресса.");
+    } finally {
+      setCompletingModuleId(null);
+    }
+  }, [message]);
+
+  const moduleItems = useMemo(() => course.modules.map((module, index) => {
+    const isCompleted = module.completed || completedModuleIds.includes(module.id);
+    return {
+      key: module.id,
+      label: <div className="module-label"><span className={isCompleted ? "module-number done" : "module-number"}>{isCompleted ? <Icon name="check" size={16}/> : index + 1}</span><div><strong>{module.title}</strong><small>{module.durationMinutes} мин</small></div></div>,
+      children: <div className="module-content"><p>{module.content}</p><div className="theory-note"><Icon name="spark"/><span>Зафиксируйте главный вывод и обсудите непонятные моменты с наставником.</span></div><Button size="small" type={isCompleted ? "default" : "primary"} disabled={isCompleted} loading={completingModuleId === module.id} onClick={() => void completeModule(module.id)}>{isCompleted ? "Модуль изучен" : "Отметить как изученный"}</Button></div>
+    };
+  }), [course.modules, completedModuleIds, completingModuleId, completeModule]);
 
   const submit = async () => {
     if (!allAnswered) {
@@ -64,7 +84,7 @@ export function LearningClassView({ course }: { course: LearningClassDetail }) {
 
   return <>
     <PageHeader eyebrow={course.category} title={course.title} description={course.longDescription} backHref="/learning"/>
-    <section className="course-detail-hero"><CourseArtwork course={course}/><div className="course-detail-info"><StatusPill status={course.status}/><div className="course-meta large"><span><Icon name="clock"/> {course.durationMinutes} мин</span><span><Icon name="book"/> {course.modulesCount} модуля</span><span><Icon name="coin"/> +{course.reward}</span></div><div><span>Прогресс теории</span><strong>{completed} из {course.modules.length}</strong></div><Progress percent={course.progressPercent} showInfo={false}/></div><div className="test-conditions"><span className="icon-box"><Icon name="document"/></span><strong>Итоговый тест</strong><p>Порог {course.passThreshold}% · попыток {course.maxAttempts - course.attemptsUsed} из {course.maxAttempts}</p>{course.bestScore !== null ? <small>Лучший результат: {course.bestScore}%</small> : null}</div></section>
+    <section className="course-detail-hero"><CourseArtwork course={course}/><div className="course-detail-info"><StatusPill status={course.status}/><div className="course-meta large"><span><Icon name="clock"/> {course.durationMinutes} мин</span><span><Icon name="book"/> {course.modulesCount} модуля</span><span><Icon name="coin"/> +{course.reward}</span></div><div><span>Прогресс теории</span><strong>{completed} из {course.modules.length}</strong></div><Progress percent={course.modules.length ? Math.round((completed / course.modules.length) * 100) : 0} showInfo={false}/></div><div className="test-conditions"><span className="icon-box"><Icon name="document"/></span><strong>Итоговый тест</strong><p>Порог {course.passThreshold}% · попыток {course.maxAttempts - course.attemptsUsed} из {course.maxAttempts}</p>{course.bestScore !== null ? <small>Лучший результат: {course.bestScore}%</small> : null}</div></section>
 
     <Tabs className="content-tabs" items={[
       { key: "theory", label: "Теория", children: <section className="modules-section"><div className="section-title"><div><span className="eyebrow">Материалы</span><h2>Модули курса</h2></div></div><Collapse className="module-collapse" items={moduleItems} defaultActiveKey={course.modules[0]?.id}/></section> },

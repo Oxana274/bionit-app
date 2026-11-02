@@ -7,6 +7,14 @@ interface EmployeeRecord { id: string; employee_number: string; first_name: stri
 interface CourseRecord { id: string; title: string; category: string; duration_minutes: number; reward: number; status: string; }
 interface AssignmentRecord { id: string; profile_id: string; assigned_by: string; due_date: string | null; status: string; assigned_at: string; completed_at: string | null; cancelled_at: string | null; cancellation_reason: string | null; }
 interface AssignmentCourseRecord { id: string; assignment_id: string; class_id: string; enrollment_id: string | null; status: string; }
+interface AcademyReportRecord {
+  assignmentId: string; assignmentCourseId: string; employee: string;
+  employeeNumber: string; department: string; course: string;
+  dueDate: string | null; assignedAt: string; startedAt: string | null;
+  completedAt: string | null; status: string; completedModules: number;
+  totalModules: number; progressPercent: number; bestScore: number | null;
+  attemptsUsed: number; attemptsLimit: number;
+}
 
 type AuthorizationResult =
   | { ok: true; token: string }
@@ -68,10 +76,11 @@ export async function GET() {
   const auth = await authorize();
   if (!auth.ok) return auth.response;
   try {
-    const [employees, courses, assignments] = await Promise.all([
+    const [employees, courses, assignments, report] = await Promise.all([
       supabaseRest<EmployeeRecord[]>("profiles?select=id,employee_number,first_name,last_name,position,department_id,status&status=eq.active&order=last_name.asc,first_name.asc", auth.token),
       supabaseRest<CourseRecord[]>("learning_classes?select=id,title,category,duration_minutes,reward,status&status=eq.active&order=sort_order.asc,title.asc", auth.token),
-      supabaseRest<AssignmentRecord[]>("learning_assignments?select=id,profile_id,assigned_by,due_date,status,assigned_at,completed_at,cancelled_at,cancellation_reason&order=assigned_at.desc&limit=100", auth.token)
+      supabaseRest<AssignmentRecord[]>("learning_assignments?select=id,profile_id,assigned_by,due_date,status,assigned_at,completed_at,cancelled_at,cancellation_reason&order=assigned_at.desc&limit=100", auth.token),
+      supabaseRpc<AcademyReportRecord[]>("get_academy_learning_report", auth.token)
     ]);
     const ids = assignments.map((item) => item.id);
     const assignmentCourses = ids.length
@@ -89,7 +98,8 @@ export async function GET() {
         dueDate: item.due_date, status: item.status, assignedAt: item.assigned_at,
         completedAt: item.completed_at, cancelledAt: item.cancelled_at, cancellationReason: item.cancellation_reason,
         courses: assignmentCourses.filter((course) => course.assignment_id === item.id).map((course) => ({ id: course.id, title: courseById.get(course.class_id)?.title ?? "Курс", status: course.status }))
-      }))
+      })),
+      report: report ?? []
     });
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : "Не удалось загрузить Академию." }, { status: 500 });
