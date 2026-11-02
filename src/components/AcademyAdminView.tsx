@@ -20,6 +20,14 @@ interface AcademyReportRow {
   attemptsUsed: number; attemptsLimit: number;
 }
 interface AcademyPayload { employees: AcademyEmployee[]; courses: AcademyCourse[]; assignments: AcademyAssignment[]; report: AcademyReportRow[]; }
+interface DepartmentSummary {
+  department: string;
+  total: number;
+  inProgress: number;
+  completed: number;
+  overdue: number;
+  averageProgress: number;
+}
 interface AssignmentFormValues { profileId: string; classIds: string[]; dueDate?: Dayjs | null; }
 
 const STATUS_LABEL: Record<string, string> = { assigned: "Назначено", in_progress: "В процессе", completed: "Завершено", overdue: "Просрочено", cancelled: "Отменено", suspended: "Приостановлено" };
@@ -114,6 +122,58 @@ export function AcademyAdminView() {
     (reportStatus === "all" || row.status === reportStatus) &&
     (reportDepartment === "all" || row.department === reportDepartment)
   );
+
+  // Сводка считается по всем назначениям и не зависит от фильтров отчёта.
+  const departmentSummary = useMemo<DepartmentSummary[]>(() => {
+    const grouped = new Map<string, {
+      total: number;
+      inProgress: number;
+      completed: number;
+      overdue: number;
+      progressTotal: number;
+    }>();
+
+    for (const row of data.report) {
+      if (row.status === "cancelled") continue;
+
+      const name = row.department || "Без подразделения";
+      const current = grouped.get(name) ?? {
+        total: 0,
+        inProgress: 0,
+        completed: 0,
+        overdue: 0,
+        progressTotal: 0
+      };
+
+      current.total += 1;
+      current.progressTotal += row.progressPercent;
+      if (row.status === "in_progress") current.inProgress += 1;
+      if (row.status === "completed") current.completed += 1;
+      if (row.status === "overdue") current.overdue += 1;
+      grouped.set(name, current);
+    }
+
+    return Array.from(grouped.entries())
+      .map(([department, value]) => ({
+        department,
+        total: value.total,
+        inProgress: value.inProgress,
+        completed: value.completed,
+        overdue: value.overdue,
+        averageProgress: value.total
+          ? Math.round(value.progressTotal / value.total)
+          : 0
+      }))
+      .sort((a, b) => a.department.localeCompare(b.department, "ru"));
+  }, [data.report]);
+
+  const overdueRows = useMemo(
+    () => data.report
+      .filter((row) => row.status === "overdue")
+      .sort((a, b) => (a.dueDate ?? "").localeCompare(b.dueDate ?? "")),
+    [data.report]
+  );
+
   const exportReport = () => {
     const headers = ["Сотрудник", "Табельный номер", "Подразделение", "Курс", "Статус", "Прогресс, %", "Модули завершены", "Лучший результат теста, %", "Попыток использовано", "Лимит попыток", "Назначено", "Срок", "Начато", "Завершено"];
     const rows = reportRows.map((row) => [row.employee, row.employeeNumber, row.department, row.course, STATUS_LABEL[row.status] ?? row.status, row.progressPercent, `${row.completedModules} из ${row.totalModules}`, row.bestScore ?? "", row.attemptsUsed, row.attemptsLimit, reportDate(row.assignedAt), reportDate(row.dueDate), reportDate(row.startedAt), reportDate(row.completedAt)]);
@@ -143,6 +203,63 @@ export function AcademyAdminView() {
     <section className="admin-workspace">
       <div className="section-title"><div><span className="eyebrow">Контроль обучения</span><h2>Назначения сотрудников</h2></div><Button icon={<Icon name="success" size={16}/>} onClick={() => void load()} loading={loading}>Обновить</Button></div>
       {data.assignments.length ? <Table<AcademyAssignment> rowKey="id" columns={columns} dataSource={data.assignments} loading={loading} pagination={{ pageSize: 10, hideOnSinglePage: true }} scroll={{ x: 950 }}/> : <div style={{ padding: 32 }}><Empty description={loading ? "Загрузка назначений…" : "Назначений пока нет"}/></div>}
+    </section>
+
+    <section className="admin-workspace" style={{ marginTop: 24 }}>
+      <div className="section-title">
+        <div>
+          <span className="eyebrow">Сводная аналитика</span>
+          <h2>Обучение по подразделениям</h2>
+        </div>
+      </div>
+      {departmentSummary.length ? (
+        <Table<DepartmentSummary>
+          rowKey="department"
+          pagination={false}
+          size="middle"
+          dataSource={departmentSummary}
+          columns={[
+            { title: "Подразделение", dataIndex: "department", key: "department" },
+            { title: "Назначено курсов", dataIndex: "total", key: "total", width: 135 },
+            { title: "В процессе", dataIndex: "inProgress", key: "inProgress", width: 115 },
+            { title: "Завершено", dataIndex: "completed", key: "completed", width: 115 },
+            { title: "Просрочено", dataIndex: "overdue", key: "overdue", width: 115, render: (value: number) => value > 0 ? <Tag color="error">{value}</Tag> : value },
+            { title: "Средний прогресс", dataIndex: "averageProgress", key: "averageProgress", width: 180, render: (value: number) => <Progress percent={value} size="small" /> }
+          ]}
+        />
+      ) : (
+        <Empty description="Пока нет назначенного обучения для сводки по подразделениям" />
+      )}
+    </section>
+
+    <section className="admin-workspace" style={{ marginTop: 24 }}>
+      <div className="section-title">
+        <div>
+          <span className="eyebrow">Контроль сроков</span>
+          <h2>Реестр просроченного обучения</h2>
+        </div>
+        <Tag color={overdueRows.length ? "error" : "success"}>
+          Просрочено: {overdueRows.length}
+        </Tag>
+      </div>
+      {overdueRows.length ? (
+        <Table<AcademyReportRow>
+          rowKey="assignmentCourseId"
+          dataSource={overdueRows}
+          pagination={{ pageSize: 5, hideOnSinglePage: true }}
+          scroll={{ x: 950 }}
+          columns={[
+            { title: "Сотрудник", dataIndex: "employee", key: "employee", width: 190, render: (value: string, row) => <div className="table-primary"><strong>{value}</strong><span>Таб. № {row.employeeNumber}</span></div> },
+            { title: "Подразделение", dataIndex: "department", key: "department", width: 170 },
+            { title: "Курс", dataIndex: "course", key: "course", width: 240 },
+            { title: "Срок прохождения", dataIndex: "dueDate", key: "dueDate", width: 150, render: (value: string | null) => reportDate(value) || "—" },
+            { title: "Прогресс", dataIndex: "progressPercent", key: "progressPercent", width: 150, render: (value: number) => <Progress percent={value} size="small" /> },
+            { title: "Статус", dataIndex: "status", key: "status", width: 130, render: (value: string) => <StatusTag status={value} /> }
+          ]}
+        />
+      ) : (
+        <Empty description="Просроченных назначений нет" />
+      )}
     </section>
 
     <section className="admin-workspace" style={{ marginTop: 24 }}>
