@@ -24,7 +24,7 @@ export async function supabaseRest<T>(
 ): Promise<T> {
   const key = options.useServiceRole ? options.serviceRoleKey : publicEnv.supabaseAnonKey;
   if (!key || !publicEnv.supabaseUrl) throw new Error("Supabase не настроен.");
-  const url = `${publicEnv.supabaseUrl}/rest/v1/${path.replace(/^\\//, "")}`;
+  const url = `${publicEnv.supabaseUrl}/rest/v1/${path.replace(/^\//, "")}`;
   const headers = {
     apikey: key,
     Authorization: `Bearer ${options.useServiceRole ? key : accessToken}`,
