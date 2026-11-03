@@ -3297,3 +3297,56 @@ strong {
   color: var(--text-muted);
   font-size: 12px;
 }
+
+
+/* Улучшенное форматирование учебного Markdown, включая заголовки в одной строке */
+.module-markdown {
+  display: grid;
+  gap: 14px;
+  color: var(--text-primary);
+  line-height: 1.7;
+}
+.module-markdown p {
+  margin: 0 0 10px;
+  white-space: normal;
+}
+.module-markdown-title {
+  margin: 0 0 8px;
+  font-size: 18px;
+  line-height: 1.35;
+}
+.module-markdown-lesson {
+  display: grid;
+  gap: 8px;
+  padding-top: 8px;
+}
+.module-markdown-lesson + .module-markdown-lesson {
+  margin-top: 8px;
+  padding-top: 18px;
+  border-top: 1px solid var(--border-color, #e8e5e2);
+}
+.module-markdown-lesson h3 {
+  margin: 0 0 4px;
+  font-size: 16px;
+  line-height: 1.4;
+}
+.module-markdown-practice {
+  padding: 14px 16px;
+  border-radius: 12px;
+  background: #fbf0ef;
+}
+.module-markdown-practice h4 {
+  margin: 0 0 8px;
+  color: #b92d25;
+  font-size: 14px;
+}
+.module-markdown ul {
+  margin: 0 0 10px;
+  padding-left: 22px;
+}
+.module-markdown li {
+  margin: 4px 0;
+}
+.module-markdown strong {
+  font-weight: 700;
+}

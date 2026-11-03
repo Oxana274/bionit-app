@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import React, { useCallback, useMemo, useState } from "react";
 import Link from "next/link";
 import {
   App,
@@ -28,6 +28,78 @@ import type {
   LearningClassSummary
 } from "@/types/domain";
 
+
+
+function renderInlineMarkdown(text: string): React.ReactNode {
+  const parts = text.split(/(\*\*[^*]+\*\*)/g);
+  return parts.map((part, index) =>
+    part.startsWith("**") && part.endsWith("**")
+      ? <strong key={index}>{part.slice(2, -2)}</strong>
+      : <React.Fragment key={index}>{part}</React.Fragment>
+  );
+}
+
+function ModuleMarkdown({ content }: { content: string }) {
+  // Учебный SQL-импорт сохранил часть Markdown-заголовков в одной строке.
+  // Нормализуем такие заголовки перед разбором, не меняя исходный текст в БД.
+  const normalized = content
+    .replace(/\r\n?/g, "\n")
+    .replace(/[ \t]+(#{1,3}\s+)/g, "\n\n$1")
+    .replace(/[ \t]+(Блок\s+\d+\.)/g, "\n\n$1")
+    .replace(/[ \t]+(\*\*Источник:\*\*)/g, "\n\n$1")
+    .replace(/[ \t]+(###\s*Практическое задание)/g, "\n\n$1");
+
+  const blocks = normalized
+    .split(/\n\s*\n/)
+    .map((block) => block.trim())
+    .filter(Boolean);
+
+  return (
+    <div className="module-markdown">
+      {blocks.map((block, index) => {
+        const lines = block.split("\n").map((line) => line.trim()).filter(Boolean);
+        const first = lines[0] ?? "";
+        const rest = lines.slice(1);
+
+        if (first.startsWith("### ")) {
+          return (
+            <section className="module-markdown-practice" key={index}>
+              <h4>{renderInlineMarkdown(first.slice(4))}</h4>
+              {rest.map((line, i) => <p key={i}>{renderInlineMarkdown(line)}</p>)}
+            </section>
+          );
+        }
+
+        if (first.startsWith("## ")) {
+          return (
+            <section className="module-markdown-lesson" key={index}>
+              <h3>{renderInlineMarkdown(first.slice(3))}</h3>
+              {rest.map((line, i) => <p key={i}>{renderInlineMarkdown(line)}</p>)}
+            </section>
+          );
+        }
+
+        if (first.startsWith("# ")) {
+          return <h3 className="module-markdown-title" key={index}>{renderInlineMarkdown(first.slice(2))}</h3>;
+        }
+
+        if (lines.every((line) => /^[-*]\s+/.test(line))) {
+          return (
+            <ul key={index}>
+              {lines.map((line, i) => <li key={i}>{renderInlineMarkdown(line.replace(/^[-*]\s+/, ""))}</li>)}
+            </ul>
+          );
+        }
+
+        return (
+          <p key={index}>
+            {lines.map((line, i) => <React.Fragment key={i}>{i > 0 ? " " : ""}{renderInlineMarkdown(line)}</React.Fragment>)}
+          </p>
+        );
+      })}
+    </div>
+  );
+}
 
 export function LearningCatalog({
   courses
@@ -239,7 +311,7 @@ export function LearningClassView({
 
           children: (
             <div className="module-content">
-              <p>{module.content}</p>
+              <ModuleMarkdown content={module.content} />
 
               <div className="theory-note">
                 <Icon name="spark" />
