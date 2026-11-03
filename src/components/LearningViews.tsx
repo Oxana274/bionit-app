@@ -35,118 +35,83 @@ export function LearningCatalog({
   courses: LearningClassSummary[];
 }) {
   const [filter, setFilter] = useState("all");
-
   const categories = [
     "all",
     ...Array.from(new Set(courses.map((item) => item.category)))
   ];
+  const filtered = filter === "all"
+    ? courses
+    : courses.filter((item) => item.category === filter);
+  const activeCourses = filtered.filter((item) => item.courseStatus === "active");
+  const inactiveCourses = filtered.filter((item) => item.courseStatus !== "active");
+  const passed = courses.filter((item) => item.status === "passed").length;
 
-  const visible =
-    filter === "all"
-      ? courses
-      : courses.filter((item) => item.category === filter);
-
-  const passed = courses.filter(
-    (item) => item.status === "passed"
-  ).length;
+  const renderCourses = (items: LearningClassSummary[]) => (
+    <div className="course-grid">
+      {items.map((course) => (
+        <Link href={`/learning/${course.id}`} className="course-card" key={course.id} prefetch={false}>
+          <CourseArtwork course={course} />
+          <div className="course-card-body">
+            <div className="course-card-top">
+              <span>{course.category}</span>
+              <StatusPill status={course.status} />
+            </div>
+            <h2>{course.title}</h2>
+            <p>{course.description}</p>
+            <div className="course-meta">
+              <span><Icon name="clock" size={16} />{course.durationMinutes} мин</span>
+              <span><Icon name="book" size={16} />{course.modulesCount} модулей</span>
+              <span><Icon name="coin" size={16} />{course.reward}</span>
+            </div>
+            {course.progressPercent > 0 ? <Progress percent={course.progressPercent} showInfo={false} /> : null}
+            {course.courseStatus !== "active" ? <small className="course-archive-note">Неактивная программа · доступна HR</small> : null}
+          </div>
+        </Link>
+      ))}
+    </div>
+  );
 
   return (
     <>
       <PageHeader
         eyebrow="Академия Бионит"
         title="Обучение"
-        description="Учебные курсы, практическая теория и тесты для развития профессиональных навыков."
+        description="Назначенные учебные программы, материалы и результаты обучения."
       />
-
       <section className="learning-summary">
         <div>
-          <span className="icon-box">
-            <Icon name="learning" />
-          </span>
-
-          <div>
-            <strong>
-              {passed} из {courses.length}
-            </strong>
-            <span>курсов пройдено</span>
-          </div>
+          <span className="icon-box"><Icon name="learning" /></span>
+          <div><strong>{passed} из {courses.length}</strong><span>курсов пройдено</span></div>
         </div>
-
-        <Progress
-          percent={Math.round(
-            (passed / Math.max(courses.length, 1)) * 100
-          )}
-          showInfo={false}
-        />
-
-        <small>
-          Количество попыток определяется настройками каждого курса.
-        </small>
+        <Progress percent={Math.round((passed / Math.max(courses.length, 1)) * 100)} showInfo={false} />
+        <small>Количество попыток определяется настройками каждого курса.</small>
       </section>
-
-      <div className="filter-row">
-        {categories.map((category) => (
-          <button
-            type="button"
-            key={category}
-            className={
-              filter === category
-                ? "filter-chip active"
-                : "filter-chip"
-            }
-            onClick={() => setFilter(category)}
-          >
-            {category === "all" ? "Все курсы" : category}
-          </button>
-        ))}
-      </div>
-
-      <div className="course-grid">
-        {visible.map((course) => (
-          <Link
-            href={`/learning/${course.id}`}
-            className="course-card"
-            key={course.id}
-          >
-            <CourseArtwork course={course} />
-
-            <div className="course-card-body">
-              <div className="course-card-top">
-                <span>{course.category}</span>
-                <StatusPill status={course.status} />
-              </div>
-
-              <h2>{course.title}</h2>
-
-              <p>{course.description}</p>
-
-              <div className="course-meta">
-                <span>
-                  <Icon name="clock" size={16} />
-                  {course.durationMinutes} мин
-                </span>
-
-                <span>
-                  <Icon name="book" size={16} />
-                  {course.modulesCount} модуля
-                </span>
-
-                <span>
-                  <Icon name="coin" size={16} />
-                  {course.reward}
-                </span>
-              </div>
-
-              {course.progressPercent > 0 && (
-                <Progress
-                  percent={course.progressPercent}
-                  showInfo={false}
-                />
-              )}
-            </div>
-          </Link>
-        ))}
-      </div>
+      {categories.length > 2 ? (
+        <div className="filter-row">
+          {categories.map((category) => (
+            <button type="button" key={category}
+              className={filter === category ? "filter-chip active" : "filter-chip"}
+              onClick={() => setFilter(category)}>
+              {category === "all" ? "Все программы" : category}
+            </button>
+          ))}
+        </div>
+      ) : null}
+      {activeCourses.length > 0 ? (
+        <section className="learning-catalog-section">
+          <div className="section-title"><div><span className="eyebrow">Рабочий каталог</span><h2>Действующие программы</h2></div></div>
+          {renderCourses(activeCourses)}
+        </section>
+      ) : null}
+      {inactiveCourses.length > 0 ? (
+        <section className="learning-catalog-section">
+          <div className="section-title"><div><span className="eyebrow">Только для HR и администраторов</span><h2>Черновики и архив</h2></div></div>
+          {renderCourses(inactiveCourses)}
+        </section>
+      ) : null}
+      {activeCourses.length === 0 && inactiveCourses.length === 0 ? (
+        <div className="empty-card"><Icon name="book-open" size={36} /><h3>Пока нет назначенных программ</h3><p>Когда HR назначит обучение, оно появится здесь.</p></div>
+      ) : null}
     </>
   );
 }

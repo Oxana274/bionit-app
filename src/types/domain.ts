@@ -101,6 +101,7 @@ export interface LearningClassSummary {
   attemptsUsed: number;
   progressPercent: number;
   status: LearningStatus;
+  courseStatus: "active" | "inactive";
   modulesCount: number;
   coverKind: "quality" | "safety" | "product" | "leadership";
 }
