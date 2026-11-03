@@ -28,6 +28,13 @@ interface DepartmentSummary {
   overdue: number;
   averageProgress: number;
 }
+interface PeriodSummary {
+  period: string;
+  total: number;
+  inProgress: number;
+  completed: number;
+  overdue: number;
+}
 interface AssignmentFormValues { profileId: string; classIds: string[]; dueDate?: Dayjs | null; }
 
 const STATUS_LABEL: Record<string, string> = { assigned: "Назначено", in_progress: "В процессе", completed: "Завершено", overdue: "Просрочено", cancelled: "Отменено", suspended: "Приостановлено" };
@@ -174,6 +181,73 @@ export function AcademyAdminView() {
     [data.report]
   );
 
+  // Даты без UTC-сдвига: dueDate хранится в БД как DATE (YYYY-MM-DD).
+  const today = new Date();
+  const todayLocal = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  const dayMs = 24 * 60 * 60 * 1000;
+  const daysUntil = (value: string | null) => {
+    if (!value) return null;
+    const parsed = new Date(`${value}T00:00:00`);
+    if (Number.isNaN(parsed.getTime())) return null;
+    return Math.round((parsed.getTime() - todayLocal.getTime()) / dayMs);
+  };
+
+  const activeReportRows = data.report.filter(
+    (row) => row.status === "assigned" || row.status === "in_progress"
+  );
+
+  const dueSoonRows = useMemo(
+    () => activeReportRows
+      .filter((row) => {
+        const days = daysUntil(row.dueDate);
+        return days !== null && days >= 0 && days <= 30;
+      })
+      .sort((a, b) => (a.dueDate ?? "").localeCompare(b.dueDate ?? "")),
+    [data.report]
+  );
+
+  const dueNext7 = dueSoonRows.filter((row) => {
+    const days = daysUntil(row.dueDate);
+    return days !== null && days <= 7;
+  }).length;
+
+  const currentMonthKey = `${todayLocal.getFullYear()}-${String(todayLocal.getMonth() + 1).padStart(2, "0")}`;
+  const currentQuarter = Math.floor(todayLocal.getMonth() / 3);
+  const currentQuarterStart = new Date(todayLocal.getFullYear(), currentQuarter * 3, 1);
+  const currentQuarterEnd = new Date(todayLocal.getFullYear(), currentQuarter * 3 + 3, 0);
+
+  const dueThisMonth = activeReportRows.filter(
+    (row) => row.dueDate?.slice(0, 7) === currentMonthKey
+  );
+
+  const dueThisQuarter = activeReportRows.filter((row) => {
+    const days = daysUntil(row.dueDate);
+    return days !== null &&
+      new Date(`${row.dueDate}T00:00:00`) >= currentQuarterStart &&
+      new Date(`${row.dueDate}T00:00:00`) <= currentQuarterEnd;
+  });
+
+  const periodSummary = useMemo<PeriodSummary[]>(() => {
+    const grouped = new Map<string, PeriodSummary>();
+    for (const row of data.report) {
+      if (!row.dueDate || row.status === "cancelled") continue;
+      const key = row.dueDate.slice(0, 7);
+      const current = grouped.get(key) ?? {
+        period: key,
+        total: 0,
+        inProgress: 0,
+        completed: 0,
+        overdue: 0
+      };
+      current.total += 1;
+      if (row.status === "in_progress") current.inProgress += 1;
+      if (row.status === "completed") current.completed += 1;
+      if (row.status === "overdue") current.overdue += 1;
+      grouped.set(key, current);
+    }
+    return Array.from(grouped.values()).sort((a, b) => a.period.localeCompare(b.period));
+  }, [data.report]);
+
   const exportReport = () => {
     const headers = ["Сотрудник", "Табельный номер", "Подразделение", "Курс", "Статус", "Прогресс, %", "Модули завершены", "Лучший результат теста, %", "Попыток использовано", "Лимит попыток", "Назначено", "Срок", "Начато", "Завершено"];
     const rows = reportRows.map((row) => [row.employee, row.employeeNumber, row.department, row.course, STATUS_LABEL[row.status] ?? row.status, row.progressPercent, `${row.completedModules} из ${row.totalModules}`, row.bestScore ?? "", row.attemptsUsed, row.attemptsLimit, reportDate(row.assignedAt), reportDate(row.dueDate), reportDate(row.startedAt), reportDate(row.completedAt)]);
@@ -259,6 +333,70 @@ export function AcademyAdminView() {
         />
       ) : (
         <Empty description="Просроченных назначений нет" />
+      )}
+    </section>
+
+    <section className="admin-workspace" style={{ marginTop: 24 }}>
+      <div className="section-title">
+        <div>
+          <span className="eyebrow">Предупреждение о сроках</span>
+          <h2>Обучение с приближающимся сроком</h2>
+        </div>
+        <Tag color={dueSoonRows.length ? "warning" : "success"}>
+          В ближайшие 30 дней: {dueSoonRows.length}
+        </Tag>
+      </div>
+      <div className="admin-metrics" style={{ marginBottom: 18 }}>
+        <article><span><Icon name="calendar"/></span><div><strong>{dueNext7}</strong><small>Срок в ближайшие 7 дней</small></div></article>
+        <article><span><Icon name="calendar"/></span><div><strong>{dueSoonRows.length}</strong><small>Срок в ближайшие 30 дней</small></div></article>
+        <article><span><Icon name="calendar"/></span><div><strong>{dueThisMonth.length}</strong><small>Срок в текущем месяце</small></div></article>
+        <article><span><Icon name="calendar"/></span><div><strong>{dueThisQuarter.length}</strong><small>Срок в текущем квартале</small></div></article>
+      </div>
+      {dueSoonRows.length ? (
+        <Table<AcademyReportRow>
+          rowKey="assignmentCourseId"
+          dataSource={dueSoonRows}
+          pagination={{ pageSize: 5, hideOnSinglePage: true }}
+          scroll={{ x: 950 }}
+          columns={[
+            { title: "Сотрудник", dataIndex: "employee", key: "employee", width: 190, render: (value: string, row) => <div className="table-primary"><strong>{value}</strong><span>Таб. № {row.employeeNumber}</span></div> },
+            { title: "Подразделение", dataIndex: "department", key: "department", width: 170 },
+            { title: "Курс", dataIndex: "course", key: "course", width: 240 },
+            { title: "Срок", dataIndex: "dueDate", key: "dueDate", width: 140, render: (value: string | null) => reportDate(value) || "—" },
+            { title: "Осталось", key: "remaining", width: 120, render: (_, row) => { const days = daysUntil(row.dueDate); return days === 0 ? <Tag color="warning">Сегодня</Tag> : <Tag color={days !== null && days <= 7 ? "warning" : "blue"}>{days} дн.</Tag>; } },
+            { title: "Прогресс", dataIndex: "progressPercent", key: "progressPercent", width: 145, render: (value: number) => <Progress percent={value} size="small" /> }
+          ]}
+        />
+      ) : (
+        <Empty description="Нет активных назначений со сроком в ближайшие 30 дней" />
+      )}
+    </section>
+
+    <section className="admin-workspace" style={{ marginTop: 24 }}>
+      <div className="section-title">
+        <div>
+          <span className="eyebrow">Планирование</span>
+          <h2>План обучения по срокам</h2>
+        </div>
+      </div>
+      <p className="modal-description">
+        План формируется по срокам уже созданных HR-назначений. Курсы без установленного срока и отменённые назначения в план не включаются.
+      </p>
+      {periodSummary.length ? (
+        <Table<PeriodSummary>
+          rowKey="period"
+          dataSource={periodSummary}
+          pagination={{ pageSize: 6, hideOnSinglePage: true }}
+          columns={[
+            { title: "Месяц завершения", dataIndex: "period", key: "period", render: (value: string) => { const [year, month] = value.split("-").map(Number); return new Date(year, month - 1, 1).toLocaleDateString("ru-RU", { month: "long", year: "numeric" }); } },
+            { title: "Всего курсов", dataIndex: "total", key: "total" },
+            { title: "В процессе", dataIndex: "inProgress", key: "inProgress" },
+            { title: "Завершено", dataIndex: "completed", key: "completed" },
+            { title: "Просрочено", dataIndex: "overdue", key: "overdue", render: (value: number) => value > 0 ? <Tag color="error">{value}</Tag> : value }
+          ]}
+        />
+      ) : (
+        <Empty description="План появится после назначения курсов со сроками прохождения" />
       )}
     </section>
 
