@@ -204,6 +204,7 @@ export const demoLearningCatalog: LearningClassSummary[] = [
     attemptsUsed: 0,
     progressPercent: 0,
     status: "not_started",
+    courseStatus: "active",
     modulesCount: 3,
     coverKind: "safety"
   },
@@ -219,6 +220,7 @@ export const demoLearningCatalog: LearningClassSummary[] = [
     attemptsUsed: 0,
     progressPercent: 0,
     status: "not_started",
+    courseStatus: "active",
     modulesCount: 3,
     coverKind: "quality"
   },
@@ -234,6 +236,7 @@ export const demoLearningCatalog: LearningClassSummary[] = [
     attemptsUsed: 0,
     progressPercent: 0,
     status: "not_started",
+    courseStatus: "active",
     modulesCount: 3,
     coverKind: "safety"
   },
@@ -250,6 +253,7 @@ export const demoLearningCatalog: LearningClassSummary[] = [
     attemptsUsed: 1,
     progressPercent: 100,
     status: "passed",
+    courseStatus: "active",
     modulesCount: 3,
     coverKind: "leadership"
   },
@@ -266,6 +270,7 @@ export const demoLearningCatalog: LearningClassSummary[] = [
     attemptsUsed: 0,
     progressPercent: 60,
     status: "in_progress",
+    courseStatus: "active",
     modulesCount: 3,
     coverKind: "product"
   },
@@ -282,6 +287,7 @@ export const demoLearningCatalog: LearningClassSummary[] = [
     attemptsUsed: 0,
     progressPercent: 0,
     status: "not_started",
+    courseStatus: "active",
     modulesCount: 3,
     coverKind: "quality"
   },
@@ -297,6 +303,7 @@ export const demoLearningCatalog: LearningClassSummary[] = [
     attemptsUsed: 1,
     progressPercent: 100,
     status: "passed",
+    courseStatus: "active",
     modulesCount: 3,
     coverKind: "quality"
   },
@@ -312,6 +319,7 @@ export const demoLearningCatalog: LearningClassSummary[] = [
     attemptsUsed: 0,
     progressPercent: 70,
     status: "in_progress",
+    courseStatus: "active",
     modulesCount: 3,
     coverKind: "safety"
   },
@@ -327,6 +335,7 @@ export const demoLearningCatalog: LearningClassSummary[] = [
     attemptsUsed: 0,
     progressPercent: 20,
     status: "in_progress",
+    courseStatus: "active",
     modulesCount: 3,
     coverKind: "product"
   },
@@ -342,6 +351,7 @@ export const demoLearningCatalog: LearningClassSummary[] = [
     attemptsUsed: 0,
     progressPercent: 0,
     status: "not_started",
+    courseStatus: "active",
     modulesCount: 3,
     coverKind: "leadership"
   }
