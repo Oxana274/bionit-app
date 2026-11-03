@@ -110,7 +110,7 @@ export function LearningCatalog({
         </section>
       ) : null}
       {activeCourses.length === 0 && inactiveCourses.length === 0 ? (
-        <div className="empty-card"><Icon name="book-open" size={36} /><h3>Пока нет назначенных программ</h3><p>Когда HR назначит обучение, оно появится здесь.</p></div>
+        <div className="empty-card"><Icon name="book" size={36} /><h3>Пока нет назначенных программ</h3><p>Когда HR назначит обучение, оно появится здесь.</p></div>
       ) : null}
     </>
   );
