@@ -81,6 +81,7 @@ export function WorkspaceShell({
             <Link
               key={item.href}
               href={item.href}
+              prefetch={false}
               className={
                 active(pathname, item.href)
                   ? "sidebar-link active"
@@ -134,6 +135,7 @@ export function WorkspaceShell({
             <Link
               key={item.href}
               href={item.href}
+              prefetch={false}
               className={
                 active(pathname, item.href)
                   ? "bottom-link active"
