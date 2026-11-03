@@ -6,34 +6,17 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Button } from "antd";
 
-import { BrandLogo, BionicCoin, EmployeeAvatar } from "@/components/Brand";
+import { BrandLogo, EmployeeAvatar } from "@/components/Brand";
 import { Icon, type IconName } from "@/components/Icon";
 import { useSession } from "@/providers/SessionProvider";
 import type { ProfileSummary } from "@/types/domain";
 
-const mainNavigation: Array<{
+const learningNavigation: Array<{
   href: string;
   label: string;
   icon: IconName;
 }> = [
-  { href: "/home", label: "Главная", icon: "home" },
-  { href: "/learning", label: "Обучение", icon: "learning" },
-  { href: "/rating", label: "Рейтинг", icon: "rating" },
-  { href: "/more", label: "Ещё", icon: "more" }
-];
-
-const extendedNavigation: Array<{
-  href: string;
-  label: string;
-  icon: IconName;
-}> = [
-  { href: "/home", label: "Главная", icon: "home" },
-  { href: "/learning", label: "Обучение", icon: "learning" },
-  { href: "/rating", label: "Рейтинг", icon: "rating" },
-  { href: "/surveys", label: "Опросы", icon: "document" },
-  { href: "/achievements", label: "Достижения", icon: "achievements" },
-  { href: "/badges", label: "Бейджи", icon: "badges" },
-  { href: "/shop", label: "Магазин", icon: "shop" }
+  { href: "/learning", label: "Академия Бионит", icon: "learning" }
 ];
 
 function active(pathname: string, href: string): boolean {
@@ -56,16 +39,9 @@ export function WorkspaceShell({
   const { signOut } = useSession();
 
   const navigation = [
-    ...extendedNavigation,
-    ...(academyAdmin ? [{ href: "/academy-admin", label: "Академия HR", icon: "learning" as IconName }] : []),
-    ...(["hr", "admin"].includes(profile.role)
-      ? [
-          {
-            href: "/admin",
-            label: "Админ-панель",
-            icon: "admin" as IconName
-          }
-        ]
+    ...learningNavigation,
+    ...(academyAdmin
+      ? [{ href: "/academy-admin", label: "Управление обучением", icon: "admin" as IconName }]
       : [])
   ];
 
@@ -114,7 +90,7 @@ export function WorkspaceShell({
 
       <div className="workspace-main">
         <header className="app-header">
-          <Link href="/home" className="mobile-brand">
+          <Link href="/learning" className="mobile-brand">
             <BrandLogo compact priority />
             <span>
               <strong>Бионит В Деле</strong>
@@ -123,7 +99,6 @@ export function WorkspaceShell({
           </Link>
 
           <div className="header-actions">
-            <BionicCoin value={profile.balance} compact />
             <EmployeeAvatar fullName={profile.fullName} size={40} />
           </div>
         </header>
@@ -131,7 +106,7 @@ export function WorkspaceShell({
         <main className="workspace-content">{children}</main>
 
         <nav className="bottom-navigation" aria-label="Мобильная навигация">
-          {mainNavigation.map((item) => (
+          {navigation.map((item) => (
             <Link
               key={item.href}
               href={item.href}
