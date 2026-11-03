@@ -157,11 +157,31 @@ export function BadgeArtwork({
   );
 }
 
+const academyCourseCovers: Array<{ match: RegExp; src: string }> = [
+  { match: /класс\s*а|программа\s*а|охрана труда/i, src: "/images/academy/program-a-ohrana-truda.jpg" },
+  { match: /класс\s*б|программа\s*б|безопасная работа/i, src: "/images/academy/program-b-bezopasnaya-rabota.jpg" },
+  { match: /класс\s*в|программа\s*в|повышенной опасности|сосуд/i, src: "/images/academy/program-v-povyshennaya-opasnost.jpg" },
+  { match: /сиз|средства индивидуальной защиты/i, src: "/images/academy/ppe-sredstva-zashchity.jpg" }
+];
+
 export function CourseArtwork({
   course
 }: {
-  course: Pick<LearningClassSummary, "coverKind" | "category">;
+  course: Pick<LearningClassSummary, "coverKind" | "category" | "title">;
 }) {
+  const cover = academyCourseCovers.find((item) => item.match.test(course.title));
+
+  if (cover) {
+    return (
+      <div
+        className="course-art course-art-image"
+        role="img"
+        aria-label={`${course.title} — ${course.category}`}
+        style={{ backgroundImage: `url("${cover.src}")` }}
+      />
+    );
+  }
+
   const icon =
     course.coverKind === "quality"
       ? "document"

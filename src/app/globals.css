@@ -983,6 +983,14 @@ strong {
   color: #fff;
 }
 
+.course-art-image {
+  min-height: 180px;
+  background-position: center;
+  background-size: cover;
+  background-repeat: no-repeat;
+  padding: 0;
+}
+
 .course-art > span {
   position: absolute;
   z-index: 2;
