@@ -86,6 +86,9 @@ export function AdminView({ initial }: { initial: AdminDashboardData }) {
   const [roleUpdating, setRoleUpdating] = useState<string | null>(null);
   const [employeeModalOpen, setEmployeeModalOpen] = useState(false);
   const [employeeSubmitting, setEmployeeSubmitting] = useState(false);
+  const [bulkModalOpen, setBulkModalOpen] = useState(false);
+  const [bulkSubmitting, setBulkSubmitting] = useState(false);
+  const [bulkJson, setBulkJson] = useState("");
   const [survey, setSurvey] = useState<SurveyAdminControl | null>(null);
   const [surveyLoading, setSurveyLoading] = useState(true);
   const [surveyUpdating, setSurveyUpdating] = useState(false);
@@ -240,6 +243,41 @@ export function AdminView({ initial }: { initial: AdminDashboardData }) {
     } finally {
       setEmployeeSubmitting(false);
     }
+  };
+
+  const importEmployees = async () => {
+    setBulkSubmitting(true);
+    try {
+      const parsed = JSON.parse(bulkJson) as { employees?: unknown[] };
+      if (!Array.isArray(parsed.employees) || parsed.employees.length === 0) {
+        throw new Error("В JSON должен быть массив employees.");
+      }
+      const response = await fetch("/api/admin/employees/bulk", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(parsed)
+      });
+      const body = await response.json() as {
+        error?: string;
+        summary?: { total: number; created: number; skipped: number; errors: number };
+        results?: Array<{ employeeNumber: string; status: string; reason?: string }>;
+        credentials?: Array<{ employeeNumber: string; fullName: string; email: string; temporaryPassword: string }>;
+      };
+      if (!response.ok) throw new Error(body.error ?? "Не удалось выполнить импорт.");
+      if (body.credentials?.length) {
+        const csv = ["Табельный номер;ФИО;Логин;Временный пароль", ...body.credentials.map(x => [x.employeeNumber,x.fullName,x.email,x.temporaryPassword].map(v => `"${String(v).replace(/"/g,'""')}"`).join(";"))].join("\r\n");
+        const blob = new Blob(["\uFEFF", csv], { type: "text/csv;charset=utf-8" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a"); a.href = url; a.download = "Временные_доступы_Академия.csv"; a.click(); URL.revokeObjectURL(url);
+      }
+      const summary = body.summary;
+      void message.success(`Импорт завершён: создано ${summary?.created ?? 0}, пропущено ${summary?.skipped ?? 0}, ошибок ${summary?.errors ?? 0}. Файл временных паролей скачан, сохраните его безопасно.`);
+      setBulkModalOpen(false);
+      setBulkJson("");
+      window.location.reload();
+    } catch (error) {
+      void message.error(error instanceof Error ? error.message : "Ошибка импорта.");
+    } finally { setBulkSubmitting(false); }
   };
 
   const toggleSurvey = async () => {
@@ -406,14 +444,19 @@ export function AdminView({ initial }: { initial: AdminDashboardData }) {
           title="Админ-панель"
           description="Заказы, сотрудники, права доступа и опросы в одном рабочем пространстве."
         />
-        <Button
-          type="primary"
-          size="large"
-          icon={<Icon name="plus" size={19} />}
-          onClick={() => setEmployeeModalOpen(true)}
-        >
-          Добавить сотрудника
-        </Button>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
+          <Button size="large" onClick={() => setBulkModalOpen(true)}>
+            Массовый импорт
+          </Button>
+          <Button
+            type="primary"
+            size="large"
+            icon={<Icon name="plus" size={19} />}
+            onClick={() => setEmployeeModalOpen(true)}
+          >
+            Добавить сотрудника
+          </Button>
+        </div>
       </div>
 
       {surveyControlAvailable ? (
@@ -537,6 +580,43 @@ export function AdminView({ initial }: { initial: AdminDashboardData }) {
       </section>
 
       <Modal
+        open={bulkModalOpen}
+        onCancel={() => !bulkSubmitting && setBulkModalOpen(false)}
+        onOk={() => void importEmployees()}
+        okText="Проверить и импортировать"
+        cancelText="Отмена"
+        confirmLoading={bulkSubmitting}
+        okButtonProps={{ disabled: !bulkJson.trim() }}
+        centered
+        width={760}
+        title="Массовый импорт сотрудников"
+        destroyOnClose
+      >
+        <p className="modal-description">
+          Загрузите JSON с массивом employees. Существующие табельные номера будут пропущены без перезаписи.
+          После импорта браузер один раз скачает CSV с временными паролями — сохраните его в защищённом месте.
+        </p>
+        <input
+          type="file"
+          accept="application/json,.json"
+          onChange={async (event) => {
+            const file = event.target.files?.[0];
+            if (file) setBulkJson(await file.text());
+          }}
+        />
+        <Input.TextArea
+          rows={8}
+          value={bulkJson}
+          onChange={(event) => setBulkJson(event.target.value)}
+          placeholder='{"employees":[{"employeeNumber":"123","firstName":"Имя","lastName":"Фамилия","position":"Должность","departmentName":"Подразделение","hiredAt":"2026-01-01","role":"employee"}]}'
+          style={{ marginTop: 12, fontFamily: "monospace", fontSize: 12 }}
+        />
+        <p style={{ marginTop: 10, color: "#a15c00" }}>
+          Телефон не требуется. Роль по умолчанию — employee. Не загружайте данные, пока не сверены названия подразделений.
+        </p>
+      </Modal>
+
+      <Modal
         open={employeeModalOpen}
         onCancel={() => !employeeSubmitting && setEmployeeModalOpen(false)}
         footer={null}
@@ -572,9 +652,6 @@ export function AdminView({ initial }: { initial: AdminDashboardData }) {
               ]}
             >
               <Input autoComplete="off" />
-            </Form.Item>
-            <Form.Item name="phone" label="Телефон">
-              <Input placeholder="+7 900 000-00-00" autoComplete="tel" />
             </Form.Item>
             <Form.Item
               name="firstName"
