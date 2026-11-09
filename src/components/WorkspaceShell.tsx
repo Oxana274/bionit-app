@@ -1,4 +1,3 @@
-
 "use client";
 
 import type { ReactNode } from "react";
@@ -38,10 +37,18 @@ export function WorkspaceShell({
   const pathname = usePathname();
   const { signOut } = useSession();
 
+  // Управление обучением использует отдельное разрешение Академии.
+  // Админ-панель доступна только ролям, которые уже допускаются
+  // серверной функцией assertAdmin: hr и admin.
+  const canAccessAdminPanel = ["hr", "admin"].includes(profile.role);
+
   const navigation = [
     ...learningNavigation,
     ...(academyAdmin
       ? [{ href: "/academy-admin", label: "Управление обучением", icon: "admin" as IconName }]
+      : []),
+    ...(canAccessAdminPanel
+      ? [{ href: "/admin", label: "Админ-панель", icon: "access" as IconName }]
       : [])
   ];
 
