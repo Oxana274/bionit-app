@@ -219,6 +219,8 @@ export function LearningClassView({
       completedModuleIds.includes(item.id)
   ).length;
 
+  const previewOnly = course.canSubmitTest === false;
+
   const allAnswered =
     Object.keys(answers).length === course.questions.length;
 
@@ -529,9 +531,9 @@ export function LearningClassView({
                   <h2>Готовы пройти тест?</h2>
 
                   <p>
-                    Ответьте на {course.questions.length}{" "}
-                    вопроса. Для зачёта необходимо набрать
-                    не менее {course.passThreshold}%.
+                    {course.canSubmitTest
+                      ? `Ответьте на ${course.questions.length} вопросов. Для зачёта необходимо набрать не менее ${course.passThreshold}%.`
+                      : `Предпросмотр: ${course.questions.length} вопросов. Ответы не оцениваются и не сохраняются.`}
                   </p>
 
                   <div className="test-rules">
@@ -556,9 +558,9 @@ export function LearningClassView({
                   }
                   onClick={() => setTestOpen(true)}
                 >
-                  {course.status === "passed"
-                    ? "Пройти ещё раз"
-                    : "Начать тест"}
+                  {course.canSubmitTest
+                    ? (course.status === "passed" ? "Пройти ещё раз" : "Начать тест")
+                    : "Предпросмотр теста"}
                 </Button>
               </section>
             )
@@ -650,42 +652,49 @@ export function LearningClassView({
                     {question.prompt}
                   </legend>
 
-                  <Radio.Group
-                    value={answers[question.id]}
-                    onChange={(event) =>
-                      setAnswers((current) => ({
-                        ...current,
-                        [question.id]: String(
-                          event.target.value
-                        )
-                      }))
-                    }
-                  >
-                    {question.options.map(
-                      (option) => (
-                        <Radio
-                          key={option.id}
-                          value={option.id}
-                        >
+                  {previewOnly ? (
+                    <ul className="test-preview-options">
+                      {question.options.map((option) => (
+                        <li key={option.id}>{option.label}</li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <Radio.Group
+                      value={answers[question.id]}
+                      onChange={(event) =>
+                        setAnswers((current) => ({
+                          ...current,
+                          [question.id]: String(event.target.value)
+                        }))
+                      }
+                    >
+                      {question.options.map((option) => (
+                        <Radio key={option.id} value={option.id}>
                           {option.label}
                         </Radio>
-                      )
-                    )}
-                  </Radio.Group>
+                      ))}
+                    </Radio.Group>
+                  )}
                 </fieldset>
               )
             )}
 
-            <Button
-              type="primary"
-              size="large"
-              block
-              loading={submitting}
-              disabled={!allAnswered}
-              onClick={() => void submit()}
-            >
-              Отправить ответы
-            </Button>
+            {previewOnly ? (
+              <div className="empty-card" role="status">
+                Предпросмотр для HR. Ответы не отправляются, попытки и результаты не записываются.
+              </div>
+            ) : (
+              <Button
+                type="primary"
+                size="large"
+                block
+                loading={submitting}
+                disabled={!allAnswered}
+                onClick={() => void submit()}
+              >
+                Отправить ответы
+              </Button>
+            )}
           </div>
         )}
       </Drawer>

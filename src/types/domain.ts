@@ -126,6 +126,8 @@ export interface LearningClassDetail extends LearningClassSummary {
   longDescription: string;
   modules: LearningModule[];
   questions: LearningQuestion[];
+  /** True only when the current user has an active assignment and may submit a scored attempt. */
+  canSubmitTest?: boolean;
   bestScore: number | null;
 }
 
