@@ -16,3 +16,4 @@ cf2c777c25abf71f60a2a1f203d48de9551718b99616eca40a2636f475692f53  ./src/lib/data
 f55ddceeb5fd995b2691e83f27a546fcacdaa4f614ace746d41c281e736b397e  ./src/lib/data/loaders.ts
 7a6bd049e830fe3ab45a305e52eecc8cde1d27f63f85babade8b8b7692fe40eb  ./src/types/domain.ts
 2b12952f632948c4da4fb46b42dccd979eab1fe474e089dd24b4e2f3c7691450  ./supabase/migrations/0004_surveys.sql
+d05dfcf77c64d58c42cb9f73d0802683bcf5a47bd906d9a828c2a8256892e234  ./supabase/migrations/0010_academy_hr_access.sql
