@@ -984,10 +984,12 @@ strong {
 }
 
 .course-art-image {
-  min-height: 180px;
+  min-height: 0;
+  aspect-ratio: 726 / 474;
   background-position: center;
-  background-size: cover;
+  background-size: contain;
   background-repeat: no-repeat;
+  background-color: #f3f4f6;
   padding: 0;
 }
 
@@ -3095,6 +3097,10 @@ strong {
 
   .course-card .course-art {
     min-height: 170px;
+  }
+
+  .course-card .course-art-image {
+    min-height: 0;
   }
 
   .course-detail-hero {
