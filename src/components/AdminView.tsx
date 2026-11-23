@@ -89,6 +89,9 @@ export function AdminView({ initial }: { initial: AdminDashboardData }) {
   const [bulkModalOpen, setBulkModalOpen] = useState(false);
   const [bulkSubmitting, setBulkSubmitting] = useState(false);
   const [bulkJson, setBulkJson] = useState("");
+  const [passwordResetModalOpen, setPasswordResetModalOpen] = useState(false);
+  const [passwordResetSubmitting, setPasswordResetSubmitting] = useState(false);
+  const [selectedPasswordResetIds, setSelectedPasswordResetIds] = useState<string[]>([]);
   const [survey, setSurvey] = useState<SurveyAdminControl | null>(null);
   const [surveyLoading, setSurveyLoading] = useState(true);
   const [surveyUpdating, setSurveyUpdating] = useState(false);
@@ -280,6 +283,57 @@ export function AdminView({ initial }: { initial: AdminDashboardData }) {
     } finally { setBulkSubmitting(false); }
   };
 
+  const resetTemporaryPasswords = async () => {
+    if (selectedPasswordResetIds.length === 0) {
+      void message.warning("Выберите хотя бы одного сотрудника.");
+      return;
+    }
+
+    setPasswordResetSubmitting(true);
+    try {
+      const response = await fetch("/api/admin/employees/reset-passwords", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ profileIds: selectedPasswordResetIds })
+      });
+      const body = await response.json() as {
+        error?: string;
+        summary?: { total: number; reset: number; skipped: number; errors: number };
+        results?: Array<{ employeeNumber: string; status: string; reason?: string }>;
+        credentials?: Array<{ employeeNumber: string; fullName: string; email: string; temporaryPassword: string }>;
+      };
+      if (!response.ok) throw new Error(body.error ?? "Не удалось обновить пароли.");
+
+      if (body.credentials?.length) {
+        const csv = [
+          "Табельный номер;ФИО;Логин;Новый временный пароль",
+          ...body.credentials.map((x) =>
+            [x.employeeNumber, x.fullName, x.email, x.temporaryPassword]
+              .map((v) => `"${String(v).replace(/"/g, '""')}"`).join(";")
+          )
+        ].join("\\r\\n");
+        const blob = new Blob(["\\uFEFF", csv], { type: "text/csv;charset=utf-8" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "Новые_временные_пароли_Академия.csv";
+        a.click();
+        URL.revokeObjectURL(url);
+      }
+
+      const summary = body.summary;
+      void message.success(
+        `Обновлено паролей: ${summary?.reset ?? 0}; пропущено: ${summary?.skipped ?? 0}; ошибок: ${summary?.errors ?? 0}. CSV скачан — сохраните его безопасно.`
+      );
+      setPasswordResetModalOpen(false);
+      setSelectedPasswordResetIds([]);
+    } catch (error) {
+      void message.error(error instanceof Error ? error.message : "Ошибка обновления паролей.");
+    } finally {
+      setPasswordResetSubmitting(false);
+    }
+  };
+
   const toggleSurvey = async () => {
     if (!survey) return;
     const nextStatus: SurveyStatus =
@@ -449,6 +503,15 @@ export function AdminView({ initial }: { initial: AdminDashboardData }) {
             Массовый импорт
           </Button>
           <Button
+            size="large"
+            onClick={() => {
+              setSelectedPasswordResetIds([]);
+              setPasswordResetModalOpen(true);
+            }}
+          >
+            Временные пароли
+          </Button>
+          <Button
             type="primary"
             size="large"
             icon={<Icon name="plus" size={19} />}
@@ -578,6 +641,46 @@ export function AdminView({ initial }: { initial: AdminDashboardData }) {
           ]}
         />
       </section>
+
+      <Modal
+        open={passwordResetModalOpen}
+        onCancel={() => !passwordResetSubmitting && setPasswordResetModalOpen(false)}
+        onOk={() => void resetTemporaryPasswords()}
+        okText="Сбросить и скачать CSV"
+        cancelText="Отмена"
+        confirmLoading={passwordResetSubmitting}
+        okButtonProps={{ disabled: selectedPasswordResetIds.length === 0, danger: true }}
+        centered
+        width={680}
+        title="Повторная генерация временных паролей"
+        destroyOnClose
+      >
+        <p className="modal-description">
+          Выберите сотрудников, которым нужно назначить новые временные пароли.
+          Предыдущие пароли выбранных сотрудников перестанут работать сразу после сброса.
+          Для остальных сотрудников доступ не изменится.
+        </p>
+        <Select
+          mode="multiple"
+          showSearch
+          optionFilterProp="label"
+          value={selectedPasswordResetIds}
+          onChange={(values: string[]) => setSelectedPasswordResetIds(values)}
+          placeholder="Выберите сотрудников"
+          style={{ width: "100%" }}
+          maxTagCount="responsive"
+          options={employees
+            .filter((employee) => employee.authLinked)
+            .map((employee) => ({
+              value: employee.id,
+              label: `${employee.fullName} · таб. № ${employee.employeeNumber}`
+            }))}
+        />
+        <p style={{ marginTop: 12, color: "#a15c00" }}>
+          Новый CSV будет доступен для скачивания только один раз. Сохраните его в защищённом месте
+          и передайте пароли сотрудникам индивидуально. Не отправляйте общий файл в чат и не загружайте его в GitHub.
+        </p>
+      </Modal>
 
       <Modal
         open={bulkModalOpen}
