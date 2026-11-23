@@ -82,6 +82,7 @@ export function AdminView({ initial }: { initial: AdminDashboardData }) {
   const { message } = App.useApp();
   const [orders, setOrders] = useState(initial.orders);
   const [employees, setEmployees] = useState(initial.employees);
+  const [employeeSearch, setEmployeeSearch] = useState("");
   const [orderUpdating, setOrderUpdating] = useState<string | null>(null);
   const [roleUpdating, setRoleUpdating] = useState<string | null>(null);
   const [employeeModalOpen, setEmployeeModalOpen] = useState(false);
@@ -135,6 +136,24 @@ export function AdminView({ initial }: { initial: AdminDashboardData }) {
       cancelled = true;
     };
   }, [message]);
+
+  const filteredEmployees = useMemo(() => {
+    const query = employeeSearch
+      .trim()
+      .toLocaleLowerCase("ru-RU")
+      .replace(/ё/g, "е")
+      .replace(/\s+/g, " ");
+
+    if (!query) return employees;
+
+    return employees.filter((employee) =>
+      employee.fullName
+        .toLocaleLowerCase("ru-RU")
+        .replace(/ё/g, "е")
+        .replace(/\s+/g, " ")
+        .includes(query)
+    );
+  }, [employees, employeeSearch]);
 
   const metrics = useMemo(
     () => [
@@ -628,11 +647,25 @@ export function AdminView({ initial }: { initial: AdminDashboardData }) {
               ),
               children: (
                 <div className="admin-table-wrap">
+                  <div style={{ maxWidth: 380, marginBottom: 16 }}>
+                    <Input
+                      allowClear
+                      value={employeeSearch}
+                      onChange={(event) => setEmployeeSearch(event.target.value)}
+                      placeholder="Поиск сотрудника по ФИО"
+                      aria-label="Поиск сотрудника по ФИО"
+                    />
+                  </div>
                   <Table<AdminEmployeeRow>
                     rowKey="id"
                     columns={employeeColumns}
-                    dataSource={employees}
+                    dataSource={filteredEmployees}
                     pagination={{ pageSize: 10, hideOnSinglePage: true }}
+                    locale={{
+                      emptyText: employeeSearch.trim()
+                        ? "Сотрудники с таким ФИО не найдены"
+                        : "Нет сотрудников"
+                    }}
                     scroll={{ x: 1050 }}
                   />
                 </div>

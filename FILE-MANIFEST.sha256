@@ -5,7 +5,7 @@ a23b71f3ddb7cee7e5d6c5e7f3e721abb12ece65fc3072dd7eb77c1941457571  ./src/app/(wor
 e568473069e0be1991cdab8defdde3290f7833e4e64c25c612344f1a29b4988f  ./src/app/(workspace)/surveys/page.tsx
 b06efc35d894480312645cebb7a8a779eb4eca99205c6134d9af6b60c5f4dbbe  ./src/app/api/admin/surveys/current/route.ts
 b841291914aa4247f648fb739f0cadc3ad11cca8b07044f56c2e6b67242585fb  ./src/app/api/surveys/[surveyId]/responses/route.ts
-64dd325f44fcaad425460a53ccd024a45120dee1948926b4ffc871e1b9089106  ./src/components/AdminView.tsx
+4023baa5d0531f089283e83bbc1b4c5305df0f5585ed4bcaa66596f269245740  ./src/components/AdminView.tsx
 7c8078cb19bb50450b50386122caca0e8d046f5d5f3462ead6ca8f4e8b9a9b46  ./src/components/MoreView.tsx
 8c819a3818143e151fb241081b1f63e726838801a96d43d706f410adae003f87  ./src/components/SurveyCard.tsx
 534386734cca0d4025ec06a35a3a3e58652a8a0532d47dd77724f6ae98a47107  ./src/components/SurveyForm.tsx
