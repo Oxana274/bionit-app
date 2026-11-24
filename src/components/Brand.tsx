@@ -158,6 +158,7 @@ export function BadgeArtwork({
 }
 
 const academyCourseCovers: Array<{ match: RegExp; src: string }> = [
+  { match: /экспортные отгрузки|экспортная сделка/i, src: "/images/academy/export-shipments.jpg" },
   { match: /класс\s*а|программа\s*а|охрана труда/i, src: "/images/academy/program-a-ohrana-truda.jpg" },
   { match: /класс\s*б|программа\s*б|безопасная работа/i, src: "/images/academy/program-b-bezopasnaya-rabota.jpg" },
   { match: /класс\s*в|программа\s*в|повышенной опасности|сосуд/i, src: "/images/academy/program-v-povyshennaya-opasnost.jpg" },

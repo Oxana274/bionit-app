@@ -527,11 +527,6 @@ export function LearningClassView({
 
                   <div className="test-rules">
                     <span>
-                      <Icon name="trophy" />
-                      Награда: {course.reward} Биоников
-                    </span>
-
-                    <span>
                       <Icon name="warning" />
                       Не более {course.maxAttempts} попыток
                     </span>
@@ -580,7 +575,7 @@ export function LearningClassView({
             }
             subTitle={
               result.passed
-                ? `Награда: ${result.rewardGranted} Биоников. Отличная работа!`
+                ? "Отличная работа!"
                 : `Нужно ${course.passThreshold}%. Осталось попыток: ${result.attemptsLeft}.`
             }
             extra={[
